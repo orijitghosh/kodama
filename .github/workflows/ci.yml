@@ -27,6 +27,14 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # Build first. `@kodama/engine` publishes its types from `dist/`, so
+      # `service/` cannot be typechecked - or tested through the workspace
+      # link - until the engine has been emitted. A developer's machine has a
+      # `dist/` lying around from the last run and hides this; a clean checkout
+      # does not.
+      - name: Build
+        run: pnpm -r build
+
       - name: Lint
         run: pnpm lint
 
@@ -35,9 +43,6 @@ jobs:
 
       - name: Test
         run: pnpm -r test
-
-      - name: Build
-        run: pnpm -r build
 
       # Size and render budgets, printed so drift is visible in the log rather
       # than discovered at a milestone gate. Fails the build on a cap breach.
