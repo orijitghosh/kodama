@@ -5,7 +5,7 @@ into fruit, reviews hang lanterns, streaks blossom. It's one image URL you drop
 in your profile README, and it redraws every day from your real numbers.
 
 ```md
-![my kodama](https://kodama-sigma.vercel.app/YOUR_USERNAME.svg)
+![my kodama](https://kodama-sigma.vercel.app/orijitghosh.svg)
 ```
 
 That's the whole install: no account, no config, nothing stored about you. Try
