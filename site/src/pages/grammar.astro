@@ -1,0 +1,285 @@
+---
+import { receiptsFor, treeFacts } from "@kodama/engine";
+
+import Page from "../layouts/Page.astro";
+import { loadFixture, renderSpecimen, SPECIMEN_DATES } from "../specimens";
+
+/**
+ * The growth grammar (PRD §The growth grammar), rendered as a live legend over
+ * one specimen rather than as a table of twelve thumbnails.
+ *
+ * The specimen is the maintainer fixture, chosen because it is the only one
+ * that carries nearly every Tier-1 signal at once - lanterns, a bird, a chime,
+ * fruit, blossom and shoots on one tree. Rendered at build time and inlined,
+ * because the interaction needs the elements as DOM nodes.
+ *
+ * The rows are hand-written product prose from the PRD; the *bindings* are the
+ * engine's own receipts, so a row can only highlight something the engine
+ * actually drew and labelled.
+ */
+const SPECIMEN = "maintainer";
+const DATE = SPECIMEN_DATES.summer;
+
+const history = loadFixture(SPECIMEN);
+const facts = treeFacts(history, DATE);
+const receipts = receiptsFor(facts, "en");
+const svg = renderSpecimen({ fixture: SPECIMEN, theme: "ink", season: "summer" });
+
+interface Row {
+  signal: string;
+  visual: string;
+  rule: string;
+  /** The receipt class this row points at, when the specimen shows it. */
+  target?: string;
+}
+
+const ROWS: Row[] = [
+  {
+    signal: "Account age",
+    visual: "Trunk girth and bends; pot tier",
+    rule: "plastic → clay → glazed → antique → stone, upgrading at 1, 3, 6 and 10 years",
+    target: "kd-substrate",
+  },
+  {
+    signal: "Total commits",
+    visual: "Foliage pads: count and density",
+    rule: "log2 per active week, so the tree only ever grows and a prolific year cannot flatten a quiet one",
+    target: "kd-foliage",
+  },
+  {
+    signal: "Last 7 days",
+    visual: "Bright new shoots",
+    rule: "the 'I was here this week' signal, and the only one that can shrink",
+    target: "kd-shoots",
+  },
+  {
+    signal: "Merged pull requests",
+    visual: "Persimmons, sized by additions",
+    rule: "the last ten, ripening green → orange over sixty days from the merge date",
+    target: "kd-fruits",
+  },
+  {
+    signal: "Open pull requests",
+    visual: "Unripe green fruit",
+    rule: "converts to a persimmon on merge",
+    target: "kd-unripe",
+  },
+  {
+    signal: "Code reviews",
+    visual: "Paper lanterns on the branches",
+    rule: "log2(1 + reviews) - a lantern is an order of magnitude, not a tally",
+    target: "kd-lanterns",
+  },
+  {
+    signal: "Issues closed",
+    visual: "A bird, perched or nesting",
+    rule: "perches at fifty, nests at two hundred and fifty",
+    target: "kd-bird",
+  },
+  {
+    signal: "Stars received",
+    visual: "Fireflies at dusk",
+    rule: "3 × log10(1 + stars), so whales do not white out the canvas",
+    target: "kd-fireflies",
+  },
+  {
+    signal: "Discussions answered",
+    visual: "A wind chime",
+    rule: "hangs at twenty-five - sound culture, without sound",
+    target: "kd-chime",
+  },
+  {
+    signal: "Current streak",
+    visual: "Blossom clusters",
+    rule: "opens at fourteen days, one more cluster every thirty; a break drops petals and leaves the tree unharmed",
+    target: "kd-blossoms",
+  },
+  {
+    signal: "Longest streak",
+    visual: "A ring of petals pressed into the soil",
+    rule: "permanent, at a hundred days - a memory of your best run",
+  },
+  {
+    signal: "The calendar",
+    visual: "Season: blossom, deep green, red-gold, bare and snowed",
+    rule: "a function of the date alone, never of the account - everyone's tree turns together",
+    target: "kd-seasonal",
+  },
+  {
+    signal: "Top languages",
+    visual: "Optional leaf tint",
+    rule: "opt in with ?tint=lang",
+  },
+];
+
+const shown = new Set(receipts.map((r) => r.target));
+---
+
+<Page
+  title="kodama - the growth grammar"
+  description="What every element of a kodama tree means, and the public figure it is computed from."
+>
+  <h1>The growth grammar</h1>
+  <p class="tagline">
+    Thirteen signals, one tree. Every element below is computed from public data
+    and nothing else - no randomness, no stored state, nothing purchasable.
+  </p>
+
+  <div class="specimen">
+    <Fragment set:html={svg} />
+  </div>
+  <p class="note">
+    The maintainer fixture, drawn for {DATE}. Focus or hover a row to find its
+    element on the tree.
+  </p>
+
+  <table>
+    <caption class="note">
+      Rows marked with a dot appear on this specimen; the rest need a history that
+      earns them.
+    </caption>
+    <thead>
+      <tr>
+        <th scope="col">Signal</th>
+        <th scope="col">Visual</th>
+        <th scope="col">Rule</th>
+      </tr>
+    </thead>
+    <tbody>
+      {
+        ROWS.map((row) => (
+          <tr
+            data-target={row.target !== undefined && shown.has(row.target) ? row.target : undefined}
+            tabindex={row.target !== undefined && shown.has(row.target) ? 0 : undefined}
+          >
+            <th scope="row">
+              {row.signal}
+              {row.target !== undefined && shown.has(row.target) && (
+                <span class="dot" aria-label="shown on this specimen">
+                  {" "}
+                  ●
+                </span>
+              )}
+            </th>
+            <td>{row.visual}</td>
+            <td class="rule">{row.rule}</td>
+          </tr>
+        ))
+      }
+    </tbody>
+  </table>
+
+  <h2>Why this is checkable</h2>
+  <p>
+    Rendering is a pure function of (history, date, options): the same inputs
+    produce byte-identical output forever, so nothing about your tree is a roll of
+    the dice. Every element also carries its own provenance - open the
+    <a href="/tree/sindresorhus">receipts for any account</a> and each ornament
+    will name the public figure it came from and the rule applied to it.
+  </p>
+
+  <script>
+    const rows = document.querySelectorAll<HTMLTableRowElement>("tr[data-target]");
+
+    for (const row of rows) {
+      const target = row.dataset.target;
+      if (target === undefined) continue;
+      const node = document.querySelector(`.specimen .${target}`);
+      if (node === null) continue;
+
+      const on = (): void => {
+        row.classList.add("kd-hot");
+        node.classList.add("kd-hot");
+      };
+      const off = (): void => {
+        row.classList.remove("kd-hot");
+        node.classList.remove("kd-hot");
+      };
+
+      row.addEventListener("mouseenter", on);
+      row.addEventListener("mouseleave", off);
+      row.addEventListener("focus", on);
+      row.addEventListener("blur", off);
+    }
+  </script>
+</Page>
+
+<style>
+  .specimen {
+    display: flex;
+    justify-content: center;
+    margin: 2rem 0 0.5rem;
+  }
+
+  .specimen :global(svg) {
+    max-width: 100%;
+    height: auto;
+  }
+
+  .specimen :global(.kd-hot) > :global(*) {
+    stroke: var(--accent);
+    stroke-width: 2;
+    paint-order: stroke;
+  }
+
+  table {
+    width: 100%;
+    margin-top: 2rem;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+
+  caption {
+    margin-bottom: 0.6rem;
+    text-align: left;
+  }
+
+  th,
+  td {
+    padding: 0.6rem 0.5rem;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid var(--border);
+  }
+
+  thead th {
+    font-size: 0.8rem;
+    color: var(--muted);
+    text-transform: lowercase;
+    letter-spacing: 0.04em;
+  }
+
+  tbody th {
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .rule {
+    color: var(--muted);
+  }
+
+  tr[data-target] {
+    cursor: default;
+  }
+
+  tr.kd-hot,
+  tr[data-target]:focus-visible {
+    outline: none;
+    background: var(--card);
+  }
+
+  .dot {
+    color: var(--accent);
+  }
+
+  h2 {
+    margin-top: 2.5rem;
+    font-size: 1.1rem;
+  }
+
+  @media (max-width: 40rem) {
+    tbody th {
+      white-space: normal;
+    }
+  }
+</style>

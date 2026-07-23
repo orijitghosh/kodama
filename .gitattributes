@@ -1,0 +1,10 @@
+# Determinism reaches into the working tree. Golden SVGs are compared byte for
+# byte across Linux, macOS and Windows in CI, so a checkout that rewrote line
+# endings would fail the determinism suite on Windows for reasons that have
+# nothing to do with the renderer. Everything text stays LF everywhere.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.woff2 binary
+*.gif binary

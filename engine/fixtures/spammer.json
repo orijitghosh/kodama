@@ -1,0 +1,37 @@
+{
+  "v": 1,
+  "login": "spammer",
+  "fetchedAt": "2026-07-15",
+  "createdAt": "2025-05-21",
+  "weeks": [
+    {
+      "w": "2026-W28",
+      "c": 120
+    },
+    {
+      "w": "2026-W29",
+      "c": 90
+    }
+  ],
+  "totals": {
+    "commits": 210,
+    "prsMerged": 0,
+    "prsOpen": 0,
+    "reviews": 0,
+    "issuesClosed": 0,
+    "discussions": 0,
+    "starsReceived": 0
+  },
+  "streak": {
+    "current": 7,
+    "longest": 7,
+    "lastActiveDate": "2026-07-15"
+  },
+  "recentPRs": [],
+  "languages": [
+    {
+      "name": "JavaScript",
+      "share": 1
+    }
+  ]
+}

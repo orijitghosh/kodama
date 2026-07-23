@@ -1,0 +1,265 @@
+---
+import Page from "../layouts/Page.astro";
+
+/**
+ * The receipts page, served at `/tree/<user>` by a host rewrite (the same
+ * mechanism `/<user>.svg` uses). One static page for every account: the login
+ * comes from the path at runtime, and everything else from
+ * `/api/<user>.json`.
+ *
+ * Why the SVG is inlined here rather than left in an `<img>`: an image is a
+ * single opaque node, and the whole point of this page is that every element in
+ * it can be interrogated. Inline, each ornament group is a real DOM node that
+ * can take focus, carry an aria-label, and answer for itself.
+ */
+---
+
+<Page
+  title="kodama - receipts"
+  description="Every element of a kodama tree, traced back to the public number that put it there."
+  noindex
+>
+      <h1 id="title">Receipts</h1>
+      <p class="tagline" id="subtitle">
+        Every element on this tree, and the public figure it was computed from.
+      </p>
+
+      <div class="tree-frame" id="frame" aria-busy="true">
+        <p class="note" id="loading">Growing...</p>
+      </div>
+
+      <p class="note tooltip" id="tooltip" role="status" aria-live="polite"></p>
+
+      <h2>What is on this tree</h2>
+      <p class="note">
+        Focus or hover any element above to highlight its line here. Nothing in this
+        list is decorative: an element that cannot name its source is not drawn.
+      </p>
+      <ul class="receipts" id="receipts"></ul>
+
+      <p class="note" id="error" hidden></p>
+
+      <p class="note">
+        Computed from public data only, for the date shown. The same numbers appear
+        on the account's GitHub profile; the arithmetic is in <code>receiptsFor</code>.
+      </p>
+
+    <style>
+      .tree-frame {
+        display: flex;
+        justify-content: center;
+        min-height: 12rem;
+        padding: 0.5rem;
+      }
+
+      /* The tree is injected after render, so Astro's scoping attributes are
+         never on it. These rules have to be global or they match nothing -
+         which is invisible in a test and obvious on a phone. */
+      .tree-frame :global(svg) {
+        max-width: 100%;
+        height: auto;
+      }
+
+      /* The focus ring lives on the group, and SVG has no outline of its own,
+         so it is drawn as a stroke. */
+      .tree-frame :global([data-receipt]:focus-visible),
+      .tree-frame :global([data-receipt].kd-hot) {
+        outline: none;
+      }
+
+      .tree-frame :global([data-receipt]:focus-visible) > :global(*),
+      .tree-frame :global([data-receipt].kd-hot) > :global(*) {
+        stroke: var(--accent);
+        stroke-width: 2;
+        paint-order: stroke;
+      }
+
+      .tooltip {
+        min-height: 2.6rem;
+        margin: 0.75rem 0 2rem;
+        padding: 0.6rem 0.75rem;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--card);
+      }
+
+      .receipts {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 0.5rem;
+      }
+
+      .receipts li {
+        padding: 0.7rem 0.85rem;
+        border: 1px solid var(--border);
+        border-left-width: 3px;
+        border-radius: 8px;
+        background: var(--card);
+      }
+
+      .receipts li.kd-hot {
+        border-left-color: var(--accent);
+      }
+
+      .receipts .what {
+        font-weight: 600;
+      }
+
+      .receipts .value {
+        color: var(--muted);
+      }
+
+      .receipts .why {
+        display: block;
+        margin-top: 0.25rem;
+        font-size: 0.88rem;
+      }
+
+      h2 {
+        margin-top: 2.5rem;
+        font-size: 1.1rem;
+      }
+    </style>
+
+    <script>
+      interface Receipt {
+        target: string;
+        label: string;
+        value: string;
+        provenance: string;
+      }
+
+      interface FactsBody {
+        login: string;
+        date: string;
+        stale: boolean;
+        receipts: Receipt[];
+      }
+
+      const origin = document.body.dataset.origin ?? window.location.origin;
+
+      const frame = document.querySelector<HTMLElement>("#frame");
+      const list = document.querySelector<HTMLUListElement>("#receipts");
+      const tooltip = document.querySelector<HTMLElement>("#tooltip");
+      const errorBox = document.querySelector<HTMLElement>("#error");
+
+      /** `/tree/<user>`, or `?user=` when the host did not rewrite. */
+      function loginFromLocation(): string | null {
+        const fromPath = /^\/tree\/([^/]+)\/?$/.exec(
+          decodeURIComponent(window.location.pathname),
+        )?.[1];
+        const login = fromPath ?? new URLSearchParams(window.location.search).get("user");
+        if (login === null || login === undefined) return null;
+        return /^[a-zA-Z0-9](?:[a-zA-Z0-9\-]{0,38})$/.test(login) ? login : null;
+      }
+
+      function show(message: string): void {
+        if (errorBox) {
+          errorBox.textContent = message;
+          errorBox.hidden = false;
+        }
+        if (frame) frame.setAttribute("aria-busy", "false");
+      }
+
+      async function main(): Promise<void> {
+        const login = loginFromLocation();
+        if (login === null) {
+          show("Open this page as /tree/<username>.");
+          return;
+        }
+
+        const title = document.querySelector("#title");
+        if (title) title.textContent = `Receipts for ${login}`;
+        document.title = `kodama - receipts for ${login}`;
+
+        // Both in flight together: the SVG is the picture, the JSON is the
+        // explanation, and neither is useful without the other.
+        const [svgResponse, factsResponse] = await Promise.all([
+          fetch(`${origin}/${encodeURIComponent(login)}.svg?animate=off`),
+          fetch(`${origin}/api/${encodeURIComponent(login)}.json`),
+        ]);
+
+        if (factsResponse.status === 404) {
+          show(`GitHub has no account called ${login}.`);
+          return;
+        }
+        if (!factsResponse.ok || !svgResponse.ok) {
+          show("The service did not answer. Try again in a moment.");
+          return;
+        }
+
+        const facts = (await factsResponse.json()) as FactsBody;
+        const svg = await svgResponse.text();
+
+        const subtitle = document.querySelector("#subtitle");
+        if (subtitle) {
+          subtitle.textContent = facts.stale
+            ? `Drawn for ${facts.date} from the last copy we could fetch.`
+            : `Drawn for ${facts.date}. Every element below names its source.`;
+        }
+
+        if (!frame || !list) return;
+        // The SVG comes from our own origin and is generated by the engine,
+        // which escapes every value it emits; there is no user-authored markup
+        // anywhere in it.
+        frame.innerHTML = svg;
+        frame.setAttribute("aria-busy", "false");
+
+        const pairs: Array<{ node: Element; item: HTMLLIElement }> = [];
+
+        for (const receipt of facts.receipts) {
+          const item = document.createElement("li");
+          const what = document.createElement("span");
+          what.className = "what";
+          what.textContent = receipt.label;
+          const value = document.createElement("span");
+          value.className = "value";
+          value.textContent = ` - ${receipt.value}`;
+          const why = document.createElement("span");
+          why.className = "why";
+          why.textContent = receipt.provenance;
+          item.append(what, value, why);
+          list.append(item);
+
+          const node = frame.querySelector(`.${receipt.target}`);
+          if (node === null) continue;
+
+          // A focusable group with a label is what turns the picture into
+          // something a screen reader and a keyboard can walk.
+          node.setAttribute("tabindex", "0");
+          node.setAttribute("role", "img");
+          node.setAttribute("data-receipt", receipt.target);
+          node.setAttribute("aria-label", `${receipt.label}: ${receipt.value}. ${receipt.provenance}`);
+
+          const enter = (): void => {
+            if (tooltip) tooltip.textContent = `${receipt.label}: ${receipt.provenance}`;
+            item.classList.add("kd-hot");
+            node.classList.add("kd-hot");
+          };
+          const leave = (): void => {
+            item.classList.remove("kd-hot");
+            node.classList.remove("kd-hot");
+          };
+
+          node.addEventListener("mouseenter", enter);
+          node.addEventListener("mouseleave", leave);
+          node.addEventListener("focus", enter);
+          node.addEventListener("blur", leave);
+          item.addEventListener("mouseenter", enter);
+          item.addEventListener("mouseleave", leave);
+
+          pairs.push({ node, item });
+        }
+
+        if (pairs.length === 0 && tooltip) {
+          tooltip.textContent = "This tree is a seedling - there is nothing on it yet.";
+        }
+      }
+
+      void main().catch(() => {
+        show("Something went wrong drawing this page.");
+      });
+    </script>
+</Page>

@@ -1,0 +1,14 @@
+{
+  "//": [
+    "The Vercel adapters. Two files, typechecked like everything else.",
+    "`types` is empty on purpose: an adapter that needed node globals would be",
+    "doing work that belongs inside the package."
+  ],
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": [],
+    "lib": ["ES2022", "DOM"]
+  },
+  "include": ["*.ts"]
+}

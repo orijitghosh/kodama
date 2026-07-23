@@ -1,0 +1,25 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "pnpm -r build",
+  "outputDirectory": "site/dist",
+  "framework": null,
+  "regions": ["iad1"],
+  "build": {
+    "env": {
+      "ASTRO_TELEMETRY_DISABLED": "1"
+    }
+  },
+  "functions": {
+    "api/tree.ts": { "maxDuration": 15 },
+    "api/facts.ts": { "maxDuration": 15 },
+    "api/healthz.ts": { "maxDuration": 5 },
+    "api/redirect.ts": { "maxDuration": 5 }
+  },
+  "rewrites": [
+    { "source": "/healthz", "destination": "/api/healthz" },
+    { "source": "/api/:user.json", "destination": "/api/facts" },
+    { "source": "/:user.svg", "destination": "/api/tree" },
+    { "source": "/tree/:user", "destination": "/tree" },
+    { "source": "/:user", "destination": "/api/redirect" }
+  ]
+}

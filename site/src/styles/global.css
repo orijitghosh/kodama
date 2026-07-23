@@ -1,0 +1,194 @@
+/*
+ * The site wears the engine's own palettes: `paper` in light, `ink` in dark
+ * (engine/src/themes.ts). A landing page whose colours argue with the product
+ * sitting in the middle of it is the first thing a visitor distrusts.
+ */
+
+:root {
+  color-scheme: light dark;
+
+  --bg: #f2efe6;
+  --card: #e9e5d9;
+  --border: #d6d1c2;
+  /*
+   * Two values here are darker than the engine's `paper` palette they came
+   * from: the theme's accent (#b5613a) and secondary text (#6a6d64) reach only
+   * 3.5:1 and 4.2:1 against the card, which is fine for a shape in a drawing
+   * and not fine for a link or a sentence. AA is asserted by the axe scan, so
+   * this is a measured value rather than a taste one.
+   */
+  --accent: #8f4526;
+  --text: #2a2c28;
+  --muted: #5f6259;
+
+  --sans: ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --radius: 10px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #101312;
+    --card: #161a18;
+    --border: #232927;
+    --accent: #d97742;
+    --text: #e8e6e1;
+    --muted: #9aa39d;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 3rem 1.25rem 5rem;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+main {
+  max-width: 46rem;
+  margin: 0 auto;
+}
+
+h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.9rem;
+  letter-spacing: -0.01em;
+}
+
+.tagline {
+  margin: 0 0 2rem;
+  color: var(--muted);
+}
+
+a {
+  color: var(--accent);
+}
+
+/* ---- the funnel ---- */
+
+.funnel {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.field {
+  display: grid;
+  gap: 0.3rem;
+  flex: 1 1 8rem;
+  min-width: 0;
+}
+
+.field label {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+input[type="text"],
+select {
+  font: inherit;
+  padding: 0.5rem 0.6rem;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  min-width: 0;
+}
+
+/* Native validation against the same pattern the API refuses on, so a bad
+   name is caught before it costs a request. */
+input[type="text"]:invalid:not(:placeholder-shown) {
+  border-color: var(--accent);
+}
+
+.check {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  flex: 0 0 auto;
+  padding-bottom: 0.55rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+button {
+  font: inherit;
+  padding: 0.5rem 0.9rem;
+  color: var(--bg);
+  background: var(--accent);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+button.ghost {
+  color: var(--text);
+  background: transparent;
+  border-color: var(--border);
+}
+
+/* ---- preview + snippet ---- */
+
+.preview {
+  margin: 1.5rem 0 0;
+  text-align: center;
+  min-height: 4rem;
+}
+
+.preview img {
+  max-width: 100%;
+  height: auto;
+}
+
+.snippet {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 1rem;
+}
+
+.snippet code {
+  flex: 1 1 auto;
+  overflow-x: auto;
+  white-space: nowrap;
+  padding: 0.55rem 0.7rem;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+}
+
+.note,
+noscript p {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+footer {
+  margin-top: 3.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+/* The engine honours reduced motion inside the SVG (D-026); the page has
+   nothing to animate, and says so by not adding any. */

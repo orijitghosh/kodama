@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="60" viewBox="0 0 240 60">
+  <!-- probe:prefers-color-scheme v1 -->
+  <style>
+    :root { --bg: #f2efe6; --fg: #2a2c28; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #101312; --fg: #e8e6e1; } }
+    .bg { fill: var(--bg); }
+    .fg { fill: var(--fg); }
+  </style>
+  <rect class="bg" width="240" height="60"/>
+  <text class="fg" x="10" y="25" font-family="monospace" font-size="12">c. prefers-color-scheme</text>
+  <text class="fg" x="10" y="45" font-family="monospace" font-size="10">bg flips with OS theme</text>
+</svg>

@@ -1,0 +1,91 @@
+---
+import Page from "../layouts/Page.astro";
+import {
+  SPECIMEN_DATES,
+  SPECIMEN_SEASONS,
+  SPECIMEN_THEMES,
+  SPECIMENS,
+  specimenId,
+} from "../specimens";
+---
+
+<Page
+  title="kodama - gallery"
+  description="Six accounts, two themes, two seasons: the fixtures the taste gate judged, rendered large."
+>
+  <h1>Gallery</h1>
+  <p class="tagline">
+    Six shapes of account, each in both themes and both seasons. These are the
+    fixtures the taste gate judged - the same histories, the same dates, rendered
+    by the same engine, so what is below is what was signed off on.
+  </p>
+
+  {
+    SPECIMENS.map((specimen) => (
+      <section class="specimen">
+        <h2>{specimen.title}</h2>
+        <p class="note">{specimen.caption}</p>
+        <div class="grid">
+          {SPECIMEN_THEMES.map((theme) =>
+            SPECIMEN_SEASONS.map((season) => (
+              <figure>
+                <img
+                  src={`/specimen/${specimenId({ fixture: specimen.fixture, theme, season })}.svg`}
+                  alt={`${specimen.title}, ${theme} theme, ${season}`}
+                  width="830"
+                  height="420"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <figcaption>
+                  {theme} · {season} · {SPECIMEN_DATES[season]}
+                </figcaption>
+              </figure>
+            )),
+          )}
+        </div>
+      </section>
+    ))
+  }
+</Page>
+
+<style>
+  h1 {
+    margin-bottom: 0.25rem;
+  }
+
+  .specimen {
+    margin: 3rem 0;
+  }
+
+  .specimen h2 {
+    margin: 0 0 0.25rem;
+    font-size: 1.15rem;
+  }
+
+  .grid {
+    display: grid;
+    gap: 1.25rem;
+    margin-top: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  }
+
+  figure {
+    margin: 0;
+  }
+
+  figure img {
+    width: 100%;
+    height: auto;
+    border-radius: 8px;
+    /* Reserves the box before the image lands, so a lazy grid does not shove
+       the page around as it fills. */
+    aspect-ratio: 830 / 420;
+  }
+
+  figcaption {
+    margin-top: 0.4rem;
+    color: var(--muted);
+    font-size: 0.8rem;
+  }
+</style>

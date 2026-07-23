@@ -1,0 +1,15 @@
+# Nothing here is needed to build or serve. Keeping it out of the upload keeps
+# the deployment small and keeps the spike runners - which read a local token
+# file - off the build host entirely.
+dev/
+engine/test/
+engine/golden/
+engine/scripts/
+service/test/
+service/scripts/
+**/*.test.ts
+**/*.bench.ts
+site/test/
+site/playwright.config.ts
+site/test-results/
+site/scripts/

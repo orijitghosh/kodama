@@ -1,0 +1,15 @@
+{
+  "anchorDate": "2026-07-15",
+  "fixtures": [
+    "ghost",
+    "newcomer",
+    "grinder",
+    "maintainer",
+    "whale",
+    "veteran",
+    "streak-broken",
+    "dormant",
+    "awakening",
+    "spammer"
+  ]
+}

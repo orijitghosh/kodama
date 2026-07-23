@@ -1,0 +1,40 @@
+{
+  "name": "@kodama/api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Fetch, normalize, cache and serve kodama trees",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "spike:graphql": "tsx scripts/spike-graphql.ts",
+    "spike:profile": "tsx scripts/spike-profile-cost.ts",
+    "probe": "tsx scripts/probe.ts"
+  },
+  "dependencies": {
+    "@kodama/engine": "workspace:*",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.7",
+    "eslint": "^9.18.0",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.4",
+    "tsx": "^4.19.2",
+    "fast-xml-parser": "^4.5.1"
+  }
+}

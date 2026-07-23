@@ -1,0 +1,259 @@
+---
+import { LOGIN_PATTERN, OPTION_DEFAULTS } from "@kodama/api";
+import { SCALES, THEME_NAMES } from "@kodama/engine";
+
+import { badgeUrl, markdownSnippet } from "../badge";
+import type { BadgeOptions } from "../badge";
+import Page from "../layouts/Page.astro";
+
+// The origin the badge is actually served from. Absolute rather than relative
+// so `astro dev` on localhost still shows real trees, and so the snippet is
+// pasteable the moment it is copied.
+const origin = Astro.site?.origin ?? "https://kodama-sigma.vercel.app";
+
+/**
+ * The page is static, so it cannot know who is visiting. It ships with a real
+ * account rendered by the real API - which is the honest version of a preview,
+ * and the one that still works with JavaScript off.
+ */
+const DEMO_LOGIN = "sindresorhus";
+
+const defaults: BadgeOptions = {
+  theme: OPTION_DEFAULTS.theme,
+  scale: OPTION_DEFAULTS.scale,
+  animate: OPTION_DEFAULTS.animate,
+  tint: OPTION_DEFAULTS.tint,
+  locale: OPTION_DEFAULTS.locale,
+};
+
+const demoUrl = badgeUrl(origin, DEMO_LOGIN, defaults, defaults);
+const demoSnippet = markdownSnippet(DEMO_LOGIN, demoUrl);
+---
+
+<Page
+  title="kodama - your GitHub history as a bonsai"
+  description="A living bonsai drawn from your public GitHub history. One image, one line in your README."
+  home
+>
+  <h1>kodama</h1>
+      <p class="tagline">
+        Your public GitHub history, drawn as a bonsai. One line in your README; it
+        grows on its own.
+      </p>
+
+      <form
+        class="funnel"
+        id="funnel"
+        method="get"
+        data-origin={origin}
+        data-defaults={JSON.stringify(defaults)}
+      >
+        <div class="row">
+          <div class="field" style="flex: 2 1 14rem">
+            <label for="user">GitHub username</label>
+            <input
+              type="text"
+              id="user"
+              name="user"
+              value={DEMO_LOGIN}
+              placeholder="octocat"
+              pattern={LOGIN_PATTERN.source}
+              maxlength="39"
+              autocomplete="off"
+              autocapitalize="off"
+              spellcheck="false"
+              required
+            />
+          </div>
+
+          <div class="field">
+            <label for="theme">Theme</label>
+            <select id="theme" name="theme">
+              {
+                THEME_NAMES.map((name) => (
+                  <option value={name} selected={name === defaults.theme}>
+                    {name}
+                  </option>
+                ))
+              }
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="scale">Scale</label>
+            <select id="scale" name="scale">
+              {
+                SCALES.map((name) => (
+                  <option value={name} selected={name === defaults.scale}>
+                    {name}
+                  </option>
+                ))
+              }
+            </select>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label for="tint">Foliage tint</label>
+            <select id="tint" name="tint">
+              <option value="none" selected={defaults.tint === "none"}>theme colours</option>
+              <option value="lang" selected={defaults.tint === "lang"}>language mix</option>
+            </select>
+          </div>
+
+          <label class="check">
+            <input type="checkbox" id="animate" name="animate" checked={defaults.animate} />
+            Animate
+          </label>
+
+          <button type="submit">Grow it</button>
+        </div>
+      </form>
+
+      <div class="preview" id="preview">
+        <img
+          id="tree"
+          src={demoUrl}
+          alt={`kodama bonsai rendered from the public GitHub history of ${DEMO_LOGIN}`}
+          width="880"
+          height="420"
+          loading="eager"
+        />
+      </div>
+
+      <div class="snippet">
+        <code id="snippet">{demoSnippet}</code>
+        <button type="button" class="ghost" id="copy" data-idle="Copy">Copy</button>
+      </div>
+
+      <p class="note">
+        <a id="receipts-link" href={`/tree/${DEMO_LOGIN}`}
+          >See what every element on this tree is made of →</a
+        >
+      </p>
+
+      <p class="note" id="status" role="status" aria-live="polite"></p>
+
+      <noscript>
+        <p>
+          The picker needs JavaScript, but the badge does not. Paste this into any
+          README and swap the name - every option is a query parameter
+          (<code>?theme=dusk&amp;scale=compact&amp;animate=off</code>):
+        </p>
+        <p><code>{markdownSnippet("YOUR-USERNAME", `${origin}/YOUR-USERNAME.svg`)}</code></p>
+      </noscript>
+
+  <script>
+      import { badgeUrl, markdownSnippet, permalinkQuery } from "../badge";
+      import type { BadgeOptions } from "../badge";
+
+      const form = document.querySelector<HTMLFormElement>("#funnel");
+      const user = document.querySelector<HTMLInputElement>("#user");
+      const theme = document.querySelector<HTMLSelectElement>("#theme");
+      const scale = document.querySelector<HTMLSelectElement>("#scale");
+      const tint = document.querySelector<HTMLSelectElement>("#tint");
+      const animate = document.querySelector<HTMLInputElement>("#animate");
+      const tree = document.querySelector<HTMLImageElement>("#tree");
+      const snippet = document.querySelector<HTMLElement>("#snippet");
+      const copy = document.querySelector<HTMLButtonElement>("#copy");
+      const status = document.querySelector<HTMLElement>("#status");
+      const receiptsLink = document.querySelector<HTMLAnchorElement>("#receipts-link");
+
+      if (form && user && theme && scale && tint && animate && tree && snippet) {
+        const origin = form.dataset.origin ?? window.location.origin;
+        const defaults = JSON.parse(form.dataset.defaults ?? "{}") as BadgeOptions;
+
+        const read = (): BadgeOptions => ({
+          theme: theme.value,
+          scale: scale.value,
+          tint: tint.value,
+          animate: animate.checked,
+          locale: defaults.locale,
+        });
+
+        // A shared link should reopen on the configuration it was shared in.
+        const restore = (): void => {
+          const q = new URLSearchParams(window.location.search);
+          const set = (el: HTMLInputElement | HTMLSelectElement, name: string): void => {
+            const v = q.get(name);
+            if (v !== null) el.value = v;
+          };
+          set(user, "user");
+          set(theme, "theme");
+          set(scale, "scale");
+          set(tint, "tint");
+          const a = q.get("animate");
+          if (a !== null) animate.checked = a !== "off" && a !== "false";
+        };
+
+        const apply = (): void => {
+          const login = user.value.trim();
+          if (login === "" || !user.checkValidity()) {
+            if (status) {
+              status.textContent =
+                login === "" ? "" : "That is not a GitHub username - letters, numbers and hyphens.";
+            }
+            return;
+          }
+          if (status) status.textContent = "";
+
+          const options = read();
+          const url = badgeUrl(origin, login, options, defaults);
+          // Only touch src when it changed: reassigning the same URL restarts
+          // the fetch and makes the tree blink on every keystroke.
+          if (tree.src !== url) tree.src = url;
+          tree.alt = `kodama bonsai rendered from the public GitHub history of ${login}`;
+          snippet.textContent = markdownSnippet(login, url);
+          if (receiptsLink) receiptsLink.href = `/tree/${encodeURIComponent(login)}`;
+          window.history.replaceState(null, "", permalinkQuery(login, options));
+        };
+
+        // Typing is debounced because every distinct URL is a cache miss and
+        // possibly a GitHub fetch; the selects are not, since they are discrete.
+        let timer = 0;
+        user.addEventListener("input", () => {
+          window.clearTimeout(timer);
+          timer = window.setTimeout(apply, 400);
+        });
+        for (const el of [theme, scale, tint, animate]) {
+          el.addEventListener("change", apply);
+        }
+        form.addEventListener("submit", (event) => {
+          event.preventDefault();
+          window.clearTimeout(timer);
+          apply();
+        });
+
+        tree.addEventListener("error", () => {
+          if (status) status.textContent = "The service did not answer. Try again in a moment.";
+        });
+
+        restore();
+        apply();
+      }
+
+      if (copy && snippet) {
+        copy.addEventListener("click", () => {
+          const text = snippet.textContent ?? "";
+          const done = (): void => {
+            copy.textContent = "Copied";
+            window.setTimeout(() => {
+              copy.textContent = copy.dataset.idle ?? "Copy";
+            }, 1600);
+          };
+          // Clipboard access is refused outside a secure context and in some
+          // embedded browsers; selecting the text is a worse outcome than
+          // copying it, and a better one than nothing happening.
+          navigator.clipboard?.writeText(text).then(done, () => {
+            const range = document.createRange();
+            range.selectNodeContents(snippet);
+            const selection = window.getSelection();
+            selection?.removeAllRanges();
+            selection?.addRange(range);
+            copy.textContent = "Press Ctrl+C";
+          });
+        });
+      }
+  </script>
+</Page>

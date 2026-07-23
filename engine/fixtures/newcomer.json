@@ -1,0 +1,54 @@
+{
+  "v": 1,
+  "login": "newcomer",
+  "fetchedAt": "2026-07-15",
+  "createdAt": "2026-06-22",
+  "weeks": [
+    {
+      "w": "2026-W26",
+      "c": 4
+    },
+    {
+      "w": "2026-W27",
+      "c": 12
+    },
+    {
+      "w": "2026-W28",
+      "c": 18
+    },
+    {
+      "w": "2026-W29",
+      "c": 8
+    }
+  ],
+  "totals": {
+    "commits": 42,
+    "prsMerged": 1,
+    "prsOpen": 1,
+    "reviews": 0,
+    "issuesClosed": 0,
+    "discussions": 0,
+    "starsReceived": 2
+  },
+  "streak": {
+    "current": 3,
+    "longest": 6,
+    "lastActiveDate": "2026-07-15"
+  },
+  "recentPRs": [
+    {
+      "mergedAt": "2026-07-13",
+      "bucket": 1
+    }
+  ],
+  "languages": [
+    {
+      "name": "Python",
+      "share": 0.71
+    },
+    {
+      "name": "Shell",
+      "share": 0.19
+    }
+  ]
+}

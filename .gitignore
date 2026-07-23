@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.turbo/
+.vercel/
+.astro/
+coverage/
+*.tsbuildinfo
+.env
+.env.local
+tmp/
+debug/
+
+# Recorded with the owner's own token: a self-query returns private
+# contribution counts in the calendar (dev/spikes/SPIKE-GRAPHQL.md §6).
+dev/spikes/graphql/orijit*
+site/test-results/
+site/playwright-report/

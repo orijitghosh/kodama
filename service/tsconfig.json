@@ -1,0 +1,11 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    // No `rootDir`: the adapter test reaches up into `api/` on purpose, and
+    // this project only ever typechecks. Emit is `tsconfig.build.json`'s job
+    // and it pins `rootDir` to `src`.
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts", "scripts/**/*.ts"]
+}

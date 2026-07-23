@@ -1,0 +1,39 @@
+{
+  "name": "kodama",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "license": "MIT",
+  "packageManager": "pnpm@10.33.2",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "test:e2e": "pnpm --filter @kodama/site test:e2e",
+    "lint": "eslint .",
+    "typecheck": "pnpm -r typecheck && tsc --noEmit -p api/tsconfig.json",
+    "size": "pnpm --filter @kodama/engine size"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild"],
+    "//packageExtensions": "intl-messageformat (via lighthouse) requires tslib at runtime without declaring it. pnpm's strict layout is right and the package is wrong, so the dependency is declared here rather than papered over by hoisting.",
+    "packageExtensions": {
+      "intl-messageformat": {
+        "dependencies": {
+          "tslib": "^2.8.1"
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "@kodama/api": "workspace:*"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.18.0",
+    "eslint": "^9.18.0",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.21.0"
+  }
+}

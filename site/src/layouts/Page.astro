@@ -1,0 +1,112 @@
+---
+import "../styles/global.css";
+
+interface Props {
+  title: string;
+  description: string;
+  /** Set on pages that are one-per-account and have nothing to index. */
+  noindex?: boolean;
+  /** The landing page is its own home; every other page gets a way back. */
+  home?: boolean;
+}
+
+const { title, description, noindex = false, home = false } = Astro.props;
+const origin = Astro.site?.origin ?? "https://kodama-sigma.vercel.app";
+const path = Astro.url.pathname;
+const canonical = new URL(path, origin).toString();
+// A single static card at launch. The per-tree OG renderer is M8 (cards/,
+// satori→resvg); until then every share shows the branded specimen card.
+const ogImage = new URL("/og.png", origin).toString();
+
+const NAV = [
+  { href: "/grammar", label: "grammar" },
+  { href: "/gallery", label: "gallery" },
+];
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    {noindex && <meta name="robots" content="noindex" />}
+    {!noindex && <link rel="canonical" href={canonical} />}
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="kodama" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+
+    <slot name="head" />
+  </head>
+
+  <body data-origin={origin}>
+    <main>
+      <nav aria-label="Sections">
+        {home ? <span class="wordmark">kodama</span> : <a class="wordmark" href="/">kodama</a>}
+        <ul>
+          {
+            NAV.map((item) => (
+              <li>
+                <a href={item.href} aria-current={path === item.href ? "page" : undefined}>
+                  {item.label}
+                </a>
+              </li>
+            ))
+          }
+        </ul>
+      </nav>
+
+      <slot />
+
+      <footer>
+        <p>
+          Public data only. No tracking pixels, no accounts, nothing stored about you
+          beyond a cached copy of the public history these images are drawn from.
+        </p>
+        <p><a href="/healthz">service status</a></p>
+      </footer>
+    </main>
+    <slot name="scripts" />
+  </body>
+</html>
+
+<style>
+  nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.25rem;
+    align-items: baseline;
+    margin-bottom: 2.5rem;
+  }
+
+  nav ul {
+    display: flex;
+    gap: 1rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-size: 0.9rem;
+  }
+
+  .wordmark {
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--text);
+    text-decoration: none;
+  }
+
+  [aria-current="page"] {
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+  }
+</style>

@@ -1,0 +1,23 @@
+{
+  "v": 1,
+  "login": "ghost",
+  "fetchedAt": "2026-07-15",
+  "createdAt": "2025-11-02",
+  "weeks": [],
+  "totals": {
+    "commits": 0,
+    "prsMerged": 0,
+    "prsOpen": 0,
+    "reviews": 0,
+    "issuesClosed": 0,
+    "discussions": 0,
+    "starsReceived": 0
+  },
+  "streak": {
+    "current": 0,
+    "longest": 0,
+    "lastActiveDate": "2025-11-02"
+  },
+  "recentPRs": [],
+  "languages": []
+}

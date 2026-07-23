@@ -1,0 +1,43 @@
+{
+  "name": "@kodama/engine",
+  "version": "0.1.0",
+  "description": "Pure deterministic SVG renderer for kodama trees",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./fixtures/index.json": "./fixtures/index.json",
+    "./fixtures/*.json": "./fixtures/*.json"
+  },
+  "files": ["dist", "fixtures"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "bench": "vitest bench --run",
+    "size": "tsx scripts/size-report.ts",
+    "golden:update": "tsx scripts/update-goldens.ts",
+    "gate": "tsx scripts/gate.ts",
+    "gate:2": "tsx scripts/gate-2.ts",
+    "gallery": "tsx scripts/dump-gallery.ts",
+    "zoom": "tsx scripts/dump-zoom.ts",
+    "fixtures:gen": "tsx scripts/generate-fixtures.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.7",
+    "eslint": "^9.18.0",
+    "@vitest/coverage-v8": "^3.0.4",
+    "fast-check": "^3.23.2",
+    "fast-xml-parser": "^4.5.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.4",
+    "zod": "^3.24.1"
+  }
+}

@@ -1,0 +1,7 @@
+packages:
+  - "engine"
+  # The package is `@kodama/api`; the directory is not, because Vercel reserves
+  # a root `api/` for its own function entrypoints (D-032).
+  - "service"
+  - "site"
+  - "cards"
