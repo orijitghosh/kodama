@@ -11,7 +11,7 @@ in your profile README, and it redraws every day from your real numbers.
 from your own numbers.*
 
 ```md
-![my kodama](https://kodama-sigma.vercel.app/orijitghosh.svg)
+![my kodama](https://kodama-sigma.vercel.app/YOUR_USERNAME.svg)
 ```
 
 That's the whole install: no account, no config, nothing stored about you. Try
