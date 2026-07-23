@@ -4,6 +4,8 @@ Your GitHub history drawn as a bonsai. Commits grow foliage, merged PRs ripen
 into fruit, reviews hang lanterns, streaks blossom. It's one image URL you drop
 in your profile README, and it redraws every day from your real numbers.
 
+![my kodama](https://kodama-sigma.vercel.app/orijitghosh.svg)
+
 ```md
 ![my kodama](https://kodama-sigma.vercel.app/orijitghosh.svg)
 ```
