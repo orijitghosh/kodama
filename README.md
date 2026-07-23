@@ -4,7 +4,11 @@ Your GitHub history drawn as a bonsai. Commits grow foliage, merged PRs ripen
 into fruit, reviews hang lanterns, streaks blossom. It's one image URL you drop
 in your profile README, and it redraws every day from your real numbers.
 
-![my kodama](https://kodama-sigma.vercel.app/orijitghosh.svg)
+![a kodama specimen](https://kodama-sigma.vercel.app/specimen/maintainer-ink-summer.svg)
+
+*The maintainer specimen at high summer - the same tree the
+[gallery](https://kodama-sigma.vercel.app/gallery) leads with. Yours is drawn
+from your own numbers.*
 
 ```md
 ![my kodama](https://kodama-sigma.vercel.app/orijitghosh.svg)
@@ -52,7 +56,12 @@ https://kodama-sigma.vercel.app/<user>.svg
   &animate=auto|off                             auto respects prefers-reduced-motion
   &tint=lang|none                               tint the foliage by top language
   &lang=en|ja|...                                 language of the labels and alt-text
+  &date=YYYY-MM-DD                              draw a past day instead of today
 ```
+
+`date` moves the calendar the tree is judged against, not the history behind it:
+the counts are still today's, read as of the day you name. A future date is
+refused, since the history stops today.
 
 The SVG carries both colour schemes and switches on the reader's
 `prefers-color-scheme`, so one URL works in a light or dark README. Each tree
