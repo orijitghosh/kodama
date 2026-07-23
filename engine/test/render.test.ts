@@ -142,7 +142,8 @@ describe("the skeleton", () => {
       }),
       { numRuns: 40 },
     );
-  });
+    // 440 skeleton builds, ~1 s locally and closer to the default on CI.
+  }, 30_000);
 
   it("roots every node at the trunk base", () => {
     const skeleton = buildSkeleton(seedFromLogin("veteran"), 7);
@@ -198,7 +199,10 @@ describe("render is deterministic", () => {
       ),
       { numRuns: 1000 },
     );
-  });
+    // Two thousand full renders. It clears 5 s on a developer machine and does
+    // not on a shared CI runner, and shrinking the run count to fit the default
+    // would trade coverage of the determinism contract for a scheduling detail.
+  }, 60_000);
 
   it("changes when the seed changes", () => {
     const a = render(historyWith({ login: "alice" }), DATE, opts());

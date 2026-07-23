@@ -35,19 +35,29 @@ describe("engine purity is lint-enforced", () => {
     ["Intl", "export const f = new Intl.NumberFormat();"],
   ];
 
+  // The first probe pays for ESLint's config resolution and typescript-eslint's
+  // startup, which is over a second locally and several on a shared runner.
   for (const [name, code] of probes) {
-    it(`rejects ${name}`, async () => {
-      const messages = await lintProbe(code);
-      expect(messages.join("\n")).toMatch(/SPEC-ENGINE §1|SPEC-ENGINE §3\.3/);
-    });
+    it(
+      `rejects ${name}`,
+      async () => {
+        const messages = await lintProbe(code);
+        expect(messages.join("\n")).toMatch(/SPEC-ENGINE §1|SPEC-ENGINE §3\.3/);
+      },
+      30_000,
+    );
   }
 
-  it("accepts pure code", async () => {
-    const messages = await lintProbe(
-      "export const add = (a: number, b: number): number => a + b;",
-    );
-    expect(messages).toEqual([]);
-  });
+  it(
+    "accepts pure code",
+    async () => {
+      const messages = await lintProbe(
+        "export const add = (a: number, b: number): number => a + b;",
+      );
+      expect(messages).toEqual([]);
+    },
+    30_000,
+  );
 });
 
 describe("engine source contains no ambient time or randomness", () => {
