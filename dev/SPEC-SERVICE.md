@@ -46,6 +46,13 @@ Param validation (zod): `user` must match `^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,38})$`
 params ignored; known params validated to enum, invalid value → default +
 `X-Kodama-Warn` header (debuggability without breakage).
 
+`date=YYYY-MM-DD` (D-039) is the one param that is not an enum. It moves the
+date the engine reads, never the history: the fetch still asks for today, so a
+pinned date is today's counts judged against an earlier calendar. Validated by
+the engine's own `isValidDate`, so "2026-02-29" is refused rather than
+normalized. A date after today falls back to today and warns, since the history
+has no days there.
+
 ## 2. Request flow
 
 ```

@@ -219,6 +219,30 @@ describe("option validation (SPEC-SERVICE §1)", () => {
     expect(warnHeader).toContain("scale=huge");
   });
 
+  it("draws a pinned date instead of today", async () => {
+    const { deps } = build();
+    const body = await expectValidSvg(await get("/hana.svg?date=2026-05-01", deps));
+    expect(body).toContain("2026-05-01");
+    expect(body).not.toContain(TODAY);
+    expect((await get("/hana.svg?date=2026-05-01", deps)).headers.get("x-kodama-warn")).toBeNull();
+  });
+
+  it("refuses a future date, because the history stops today", async () => {
+    const { deps } = build();
+    const response = await get("/hana.svg?date=2099-01-01", deps);
+    const body = await expectValidSvg(response);
+    expect(body).toContain(TODAY);
+    expect(response.headers.get("x-kodama-warn") ?? "").toContain("2099-01-01");
+  });
+
+  it("falls back to today when the date is not a date", async () => {
+    const { deps } = build();
+    const response = await get("/hana.svg?date=lastTuesday", deps);
+    const body = await expectValidSvg(response);
+    expect(body).toContain(TODAY);
+    expect(response.headers.get("x-kodama-warn") ?? "").toContain("lastTuesday");
+  });
+
   it("ignores parameters it does not know", async () => {
     const { deps } = build();
     const response = await get("/hana.svg?utm_source=twitter&v=3", deps);

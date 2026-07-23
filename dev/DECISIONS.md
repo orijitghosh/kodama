@@ -768,3 +768,42 @@ Deferred as a clean post-launch follow-up if the reading ever grates.
 The one adjacent fix that did ship: the 88×31 button sliced the login to ten
 characters flat (`orijitghos`), now fitted at font-size 7 with an ellipsis past
 twelve - a pure fit bug, no ladder involved.
+
+## D-039 A pinned `date=` moves the calendar, never the counts
+
+The badge draws today: streaks, dormancy, the season and the shoots are all
+read against the current date, so an account with a quiet fortnight shows a
+quiet fortnight. That is the point, and it is also why the README of this
+project could not use a live badge of my own account as its illustration - the
+first thing a visitor saw was "0 day streak", which describes one person's
+month rather than what the grammar can draw.
+
+Two changes, deliberately separate.
+
+The README now shows `/specimen/maintainer-ink-summer.svg`: the maintainer
+fixture at high summer, captioned as a specimen. That path already existed for
+the gallery (D-036's file-per-image split), so the illustration costs no new
+asset and cannot drift from what the gallery shows. It is a demonstration, and
+it says so. Nothing about a real account is claimed.
+
+The service gains `?date=YYYY-MM-DD`, which pins the day the engine renders
+against. The history is untouched - the fetch still asks for today, so the
+counts are current - and only the calendar moves. That keeps the parameter
+honest in the way that matters: it cannot invent a commit, a review or a star,
+because those numbers come from GitHub either way. What it can do is show the
+tree as it stood on a past day, which is what a "how did this look in March"
+question wants.
+
+Its limits are the interesting part. A future date is refused (the history
+stops today, so a future render would draw a dormancy that has not happened).
+The date is validated by the engine's own `isValidDate`, so an impossible day
+is rejected rather than rolled forward into a day that looks accepted. And the
+rendered header prints the pinned date next to the login, so an image drawn for
+March never presents itself as today's - a reader can always see which day they
+are looking at.
+
+The honest cost: a pinned date in someone's profile README is a badge that no
+longer redraws daily, which is the one promise the product makes on its face.
+The parameter does not hide that (the date is on the image), but nothing stops
+it either. Accepted, because the alternative is a service that cannot answer
+"what did this look like last spring" at all.

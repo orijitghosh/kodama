@@ -8,7 +8,7 @@
  * typo in `theme=inkk` should still leave a tree in the README.
  */
 
-import { BIOMES, SCALES, THEME_NAMES } from "@kodama/engine";
+import { BIOMES, isValidDate, SCALES, THEME_NAMES } from "@kodama/engine";
 import type { Biome, RenderOptions, Scale, ThemeName } from "@kodama/engine";
 
 /**
@@ -76,6 +76,15 @@ export function restorePath(url: URL, shape: RouteShape = "svg"): URL {
 
 export interface ParsedOptions {
   options: RenderOptions;
+  /**
+   * The day to draw, from `?date=`, or null for today.
+   *
+   * The history is always the current one; only the calendar the engine reads
+   * moves. That is what makes a pinned date a view of a real past rather than
+   * an invented one - the counts are today's, the date they are judged against
+   * is the caller's.
+   */
+  date: string | null;
   /** One entry per parameter that was supplied but not understood. */
   warnings: string[];
 }
@@ -132,5 +141,15 @@ export function parseOptions(params: URLSearchParams): ParsedOptions {
     else warnings.push(`locale=${rawLocale} is not a language tag; using ${OPTION_DEFAULTS.locale}`);
   }
 
-  return { options: { biome, theme, scale, animate, tint, locale }, warnings };
+  // A calendar date, not a timestamp: the engine's whole date layer is civil
+  // "YYYY-MM-DD" arithmetic (D-014), so anything with a clock in it is refused
+  // rather than truncated into something that looks accepted.
+  const rawDate = params.get("date");
+  let date: string | null = null;
+  if (rawDate !== null) {
+    if (isValidDate(rawDate)) date = rawDate;
+    else warnings.push(`date=${rawDate} is not a YYYY-MM-DD calendar date; using today`);
+  }
+
+  return { options: { biome, theme, scale, animate, tint, locale }, date, warnings };
 }

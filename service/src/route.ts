@@ -69,7 +69,7 @@ const DEGRADED_STATES = new Set(["comeBack", "broken"]);
 export async function handleTree(request: Request, deps: RouteDeps): Promise<Response> {
   // Rewritten by the host before it reached us, if the host rewrites.
   const url = restorePath(new URL(request.url));
-  const { options, warnings } = parseOptions(url.searchParams);
+  const { options, date, warnings } = parseOptions(url.searchParams);
   const login = loginFromPath(url.pathname);
 
   // Refused before any API spend: an invalid name cannot become a valid user.
@@ -80,6 +80,16 @@ export async function handleTree(request: Request, deps: RouteDeps): Promise<Res
   }
 
   const today = deps.today();
+
+  // A pinned date may look backwards, never forwards: the history ends today,
+  // so a future date would draw a dormancy and a broken streak that have not
+  // happened yet.
+  let renderDate = today;
+  if (date !== null) {
+    if (date <= today) renderDate = date;
+    else warnings.push(`date=${date} is in the future; using today`);
+  }
+
   let history: NormalizedHistory;
   let stale = false;
 
@@ -94,7 +104,7 @@ export async function handleTree(request: Request, deps: RouteDeps): Promise<Res
   }
 
   try {
-    const svg = (deps.render ?? render)(history, today, options);
+    const svg = (deps.render ?? render)(history, renderDate, options);
     // A served-stale image is success by design (D-030), not degradation.
     deps.meter?.record(false);
     return svgResponse(stale ? markStale(svg, history.fetchedAt) : svg, {

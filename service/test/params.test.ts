@@ -44,3 +44,35 @@ describe("OPTION_DEFAULTS", () => {
     expect(parseOptions(new URLSearchParams()).options).toEqual(OPTION_DEFAULTS);
   });
 });
+
+describe("date=", () => {
+  const parse = (query: string) => parseOptions(new URLSearchParams(query));
+
+  it("is null when absent, which the route reads as today", () => {
+    expect(parse("").date).toBeNull();
+  });
+
+  it("takes a calendar date", () => {
+    expect(parse("date=2026-03-14").date).toBe("2026-03-14");
+  });
+
+  it("refuses a day the calendar does not have", () => {
+    // 2026 is not a leap year, and a month has no 31st unless it has one:
+    // both are the engine's own rule (date.ts), not a second one here.
+    for (const bad of ["2026-02-29", "2026-04-31", "2026-13-01"]) {
+      const parsed = parse(`date=${bad}`);
+      expect(parsed.date).toBeNull();
+      expect(parsed.warnings.join(" ")).toContain(bad);
+    }
+  });
+
+  it("refuses anything that is not a bare YYYY-MM-DD", () => {
+    for (const bad of ["2026-7-4", "07/04/2026", "2026-07-04T12:00:00Z", "yesterday", ""]) {
+      expect(parse(`date=${encodeURIComponent(bad)}`).date).toBeNull();
+    }
+  });
+
+  it("leaves the render options alone", () => {
+    expect(parse("date=2026-03-14").options).toEqual(OPTION_DEFAULTS);
+  });
+});
