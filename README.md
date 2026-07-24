@@ -17,6 +17,14 @@ from your own numbers.*
 That's the whole install: no account, no config, nothing stored about you. Try
 yours at [kodama-sigma.vercel.app](https://kodama-sigma.vercel.app).
 
+### A live tree in the wild
+
+![sindresorhus rendered by kodama](https://kodama-sigma.vercel.app/sindresorhus.svg)
+
+*[@sindresorhus](https://github.com/sindresorhus)'s public GitHub history,
+rendered live by the service - a real account, not a fixture. Drawn from public
+data only; he isn't affiliated with this project.*
+
 ---
 
 ## What the tree says
@@ -55,7 +63,7 @@ https://kodama-sigma.vercel.app/<user>.svg
   &scale=full|compact|strip|button              830×420 · 420×160 · 830×90 · 88×31
   &animate=auto|off                             auto respects prefers-reduced-motion
   &tint=lang|none                               tint the foliage by top language
-  &lang=en|ja|...                                 language of the labels and alt-text
+  &lang=en|ja|...                               language of the labels and alt-text (locale= also works)
   &date=YYYY-MM-DD                              draw a past day instead of today
 ```
 
