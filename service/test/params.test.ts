@@ -45,6 +45,27 @@ describe("OPTION_DEFAULTS", () => {
   });
 });
 
+describe("lang / locale", () => {
+  const parse = (query: string) => parseOptions(new URLSearchParams(query));
+
+  it("reads the label language from locale", () => {
+    expect(parse("locale=ja").options.locale).toBe("ja");
+  });
+
+  it("reads it from lang too, the name the README documents", () => {
+    expect(parse("lang=ja").options.locale).toBe("ja");
+  });
+
+  it("prefers locale when both are sent", () => {
+    expect(parse("lang=fr&locale=ja").options.locale).toBe("ja");
+  });
+
+  it("warns under whichever name was used", () => {
+    expect(parse("lang=not a tag").warnings.join(" ")).toContain("lang=");
+    expect(parse("locale=not a tag").warnings.join(" ")).toContain("locale=");
+  });
+});
+
 describe("date=", () => {
   const parse = (query: string) => parseOptions(new URLSearchParams(query));
 

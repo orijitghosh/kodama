@@ -46,6 +46,11 @@ Param validation (zod): `user` must match `^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,38})$`
 params ignored; known params validated to enum, invalid value → default +
 `X-Kodama-Warn` header (debuggability without breakage).
 
+The label language is `locale=` (the canonical name, and what the picker
+emits); `lang=` is accepted as an alias because the README and PRD document that
+shorter name, and one of the two documented spellings silently doing nothing is
+the worse outcome. `locale` wins if both are sent.
+
 `date=YYYY-MM-DD` (D-039) is the one param that is not an enum. It moves the
 date the engine reads, never the history: the fetch still asks for today, so a
 pinned date is today's counts judged against an earlier calendar. Validated by

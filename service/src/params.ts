@@ -134,11 +134,16 @@ export function parseOptions(params: URLSearchParams): ParsedOptions {
     else warnings.push(`animate=${rawAnimate} is not a known value; using auto`);
   }
 
-  const rawLocale = params.get("locale");
+  // `lang` and `locale` are the same knob. `locale` is what the picker emits
+  // and the spec's canonical name; `lang` is the shorter name the README and
+  // PRD have always shown, so both resolve here rather than one silently doing
+  // nothing. `locale` wins if a caller somehow sends both.
+  const rawLocale = params.get("locale") ?? params.get("lang");
+  const localeName = params.has("locale") ? "locale" : "lang";
   let locale = OPTION_DEFAULTS.locale;
   if (rawLocale !== null) {
     if (LOCALE_PATTERN.test(rawLocale)) locale = rawLocale;
-    else warnings.push(`locale=${rawLocale} is not a language tag; using ${OPTION_DEFAULTS.locale}`);
+    else warnings.push(`${localeName}=${rawLocale} is not a language tag; using ${OPTION_DEFAULTS.locale}`);
   }
 
   // A calendar date, not a timestamp: the engine's whole date layer is civil
