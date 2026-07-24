@@ -4,11 +4,12 @@ Your GitHub history drawn as a bonsai. Commits grow foliage, merged PRs ripen
 into fruit, reviews hang lanterns, streaks blossom. It's one image URL you drop
 in your profile README, and it redraws every day from your real numbers.
 
-![a kodama specimen](https://kodama-sigma.vercel.app/specimen/maintainer-ink-summer.svg)
+![sindresorhus rendered by kodama](https://kodama-sigma.vercel.app/sindresorhus.svg)
 
-*The maintainer specimen at high summer - the same tree the
-[gallery](https://kodama-sigma.vercel.app/gallery) leads with. Yours is drawn
-from your own numbers.*
+*A live tree: [@sindresorhus](https://github.com/sindresorhus)'s public GitHub
+history, rendered by the service and redrawn every day. Public data only; he
+isn't affiliated with this project. See more in the
+[gallery](https://kodama-sigma.vercel.app/gallery).*
 
 ```md
 ![my kodama](https://kodama-sigma.vercel.app/YOUR_USERNAME.svg)
@@ -16,14 +17,6 @@ from your own numbers.*
 
 That's the whole install: no account, no config, nothing stored about you. Try
 yours at [kodama-sigma.vercel.app](https://kodama-sigma.vercel.app).
-
-### A live tree in the wild
-
-![sindresorhus rendered by kodama](https://kodama-sigma.vercel.app/sindresorhus.svg)
-
-*[@sindresorhus](https://github.com/sindresorhus)'s public GitHub history,
-rendered live by the service - a real account, not a fixture. Drawn from public
-data only; he isn't affiliated with this project.*
 
 ---
 
