@@ -280,7 +280,12 @@ always starts the same way: **`curl https://<deployment>/healthz` and read
      5 000-point budget and adds no capacity (D-029, SPIKE-GRAPHQL §3).
 - **If it is already saturated:** the service degrades correctly on its own -
   every uncached login draws the seedling, no action needed to *stay up*. The
-  above is to restore freshness, not to stop an outage.
+  above is to restore freshness, not to stop an outage. `curl -I` an uncached
+  login and read `retry-after`: the seedling carries the seconds until the
+  earliest-resetting token comes back, so it answers "how long is this" without a
+  dashboard. A benched token returns on GitHub's own reset, read off
+  `retry-after` / `x-ratelimit-reset` (SPEC-SERVICE §3), which is why a burst of
+  403s during a spike does not cost the whole hour.
 - **Rollback:** revert the `s-maxage`/`isFresh` change; freshness returns at the
   cost of the traffic. No data migration either way - both are cache-policy only.
 

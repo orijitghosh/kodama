@@ -157,6 +157,18 @@ token under 500 remaining is benched until reset. Pool telemetry → `/healthz`;
 alert (Vercel log drain or simple threshold email) at 70% aggregate
 consumption.
 
+**A refusal is benched on GitHub's clock, not ours.** 403, 429, and a
+`RATE_LIMITED` GraphQL error all carry `retry-after` or `x-ratelimit-reset`, and
+the pool believes them (`benchUntil`), clamped to the hour in either direction. A
+403 means both "bad credentials" and "too fast", and only the headers tell them
+apart: benching a healthy token for an hour over a secondary limit that clears in
+seconds costs more capacity than the limit did, during exactly the spike that
+caused it. A primary-limit rejection also arrives as a 200 with no `data`, so
+there is no quota reading to bench on - without the header path the pool would
+keep handing that token out for the rest of the window, one wasted round trip per
+request. Pool exhaustion is the one failure that knows a time, so the image
+route puts it in `retry-after` on the seedling response (§4).
+
 **One token per account, or the pool is theatre.** GitHub's rate limit is per
 *user*, not per token: two PATs on one account share one 5 000-point budget,
 measured in SPIKE-GRAPHQL §3. Tokens from the same account add no capacity and
@@ -195,6 +207,12 @@ over → serve stale or seedling, HTTP 200 always.
 
 Failure-injection test suite (vitest + mocked fetch) covers every row and
 asserts: HTTP 200, valid SVG, correct Content-Type, size cap.
+
+Pool exhaustion adds `retry-after`, in seconds until the earliest-resetting
+token, floored at a minute (to agree with "come back soon") and capped at an
+hour. It rides on a 200, so no cache acts on it: it is for the landing page and
+for whoever is reading headers during an incident. No other row carries one -
+nothing else knows a time.
 
 ## 5. Site (`site/` - Astro, static-first)
 

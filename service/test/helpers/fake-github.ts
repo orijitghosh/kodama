@@ -32,6 +32,8 @@ export interface FakeGitHubOptions {
   accounts: FakeAccount[];
   /** Per-operation failure injection; the value is the HTTP status to return. */
   failWith?: Partial<Record<string, number>>;
+  /** Headers to send with an injected failure - `retry-after` and friends. */
+  failHeaders?: Record<string, string>;
   /** Return a GraphQL-level error for these operations. */
   graphqlError?: Partial<Record<string, { message: string; type?: string }>>;
   /** Throw at the transport layer, as a dropped connection would. */
@@ -67,14 +69,23 @@ export function fakeGitHub(options: FakeGitHubOptions): FakeGitHub {
 
     if (options.networkError === true) throw new TypeError("fetch failed");
 
+    const headers = options.failHeaders ?? {};
+
     const status = options.failWith?.[operation];
     if (status !== undefined) {
-      return new Response("upstream said no", { status });
+      return new Response("upstream said no", { status, headers });
     }
 
     const gqlError = options.graphqlError?.[operation];
     if (gqlError !== undefined) {
-      return Response.json({ data: { rateLimit: RATE(options.remaining ?? 4999) }, errors: [gqlError] });
+      // A primary-limit rejection carries no `data`, which is the case the pool
+      // has to survive on headers alone.
+      return Response.json(
+        gqlError.type === "RATE_LIMITED"
+          ? { data: null, errors: [gqlError] }
+          : { data: { rateLimit: RATE(options.remaining ?? 4999) }, errors: [gqlError] },
+        { headers },
+      );
     }
 
     const login = String(body.variables["login"] ?? "");

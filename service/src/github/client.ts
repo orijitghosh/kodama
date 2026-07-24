@@ -44,6 +44,26 @@ export interface GitHubClientOptions {
   timeoutMs?: number;
 }
 
+/**
+ * When GitHub said to come back, in epoch ms, or null if it did not say.
+ *
+ * `retry-after` is the secondary-limit signal - seconds, occasionally an HTTP
+ * date. `x-ratelimit-reset` is the primary window's end, in epoch seconds.
+ * Either beats guessing.
+ */
+function retryAtFrom(headers: Headers): number | null {
+  const after = headers.get("retry-after");
+  if (after !== null && after.trim() !== "") {
+    const seconds = Number(after);
+    if (Number.isFinite(seconds)) return Date.now() + seconds * 1000;
+    const at = Date.parse(after);
+    if (!Number.isNaN(at)) return at;
+  }
+  const reset = Number(headers.get("x-ratelimit-reset"));
+  if (Number.isFinite(reset) && reset > 0) return reset * 1000;
+  return null;
+}
+
 export class GitHubClient {
   readonly #pool: PatPool;
   readonly #fetch: typeof fetch;
@@ -84,10 +104,18 @@ export class GitHubClient {
       clearTimeout(timer);
     }
 
-    if (response.status === 401 || response.status === 403) {
+    if (response.status === 401) {
       this.#pool.penalize(token, "auth");
+      throw new GitHubError("unauthorized", "github returned 401", 401);
+    }
+    // 403 is GitHub's answer to both "these credentials are no good" and "you
+    // are going too fast", and 429 is the newer form of the second. Both carry
+    // their own reset in the headers when they are about speed, so the pool is
+    // told when to try again rather than assuming the worst (see `benchUntil`).
+    if (response.status === 403 || response.status === 429) {
+      this.#pool.benchUntil(token, retryAtFrom(response.headers));
       throw new GitHubError(
-        response.status === 401 ? "unauthorized" : "rateLimited",
+        "rateLimited",
         `github returned ${String(response.status)}`,
         response.status,
       );
@@ -120,6 +148,11 @@ export class GitHubClient {
           : first.type === "RATE_LIMITED"
             ? "rateLimited"
             : "server";
+      // A primary-limit rejection arrives as a 200 whose `data` is usually null,
+      // so the quota reading above is absent and the pool would go on handing
+      // this token out - one wasted round trip per request until the window
+      // resets. Bench it on the headers instead.
+      if (kind === "rateLimited") this.#pool.benchUntil(token, retryAtFrom(response.headers));
       throw new GitHubError(kind, body.errors.map((e) => e.message).join("; "), response.status);
     }
 

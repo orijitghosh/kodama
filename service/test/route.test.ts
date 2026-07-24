@@ -16,6 +16,7 @@ import { PatPool } from "../src/github/pool.js";
 import { MemoryKV } from "../src/kv/index.js";
 import { Meter } from "../src/meter.js";
 import { handleTree, SIZE_CAPS } from "../src/route.js";
+import type { RouteDeps } from "../src/route.js";
 import { byteLength } from "@kodama/engine";
 import { fakeGitHub } from "./helpers/fake-github.js";
 import type { FakeAccount, FakeGitHubOptions } from "./helpers/fake-github.js";
@@ -45,7 +46,7 @@ function build(options: Partial<FakeGitHubOptions> = {}, kv = new MemoryKV()) {
   };
 }
 
-const get = (path: string, deps: { fetcher: Fetcher; today: () => string }) =>
+const get = (path: string, deps: RouteDeps) =>
   handleTree(new Request(`https://kodama.dev${path}`), deps);
 
 const parser = new XMLParser({ ignoreAttributes: false });
@@ -159,6 +160,35 @@ describe("the error table (SPEC-SERVICE §4)", () => {
   it("rate limiting is a seedling", async () => {
     const { deps } = build({ failWith: { Identity: 403 } });
     await expectValidSvg(await get("/hana.svg", deps));
+  });
+
+  it("an exhausted pool says when to come back", async () => {
+    // No tokens is the same shape as every token benched, and the one failure
+    // that knows a time: the pool benches until GitHub's reset.
+    const github = fakeGitHub({ accounts: [HANA] });
+    const benchedAt = Date.parse("2026-07-21T12:00:00Z");
+    const client = new GitHubClient({
+      pool: new PatPool([], { now: () => benchedAt }),
+      fetchImpl: github.fetchImpl,
+    });
+    const deps: RouteDeps = {
+      fetcher: new Fetcher({ kv: new MemoryKV(), client }),
+      today: () => TODAY,
+      nowMs: () => benchedAt + 60_000,
+    };
+
+    const response = await get("/hana.svg", deps);
+    await expectValidSvg(response);
+    expect(response.headers.get("x-kodama-state")).toBe("comeBack");
+    // Benched an hour from `benchedAt`, asked a minute in.
+    expect(response.headers.get("retry-after")).toBe("3540");
+  });
+
+  it("carries no retry-after when the failure knows no time", async () => {
+    const { deps } = build({ failWith: { Identity: 500 } });
+    const response = await get("/hana.svg", deps);
+    await expectValidSvg(response);
+    expect(response.headers.get("retry-after")).toBeNull();
   });
 
   it("a revoked token is a seedling", async () => {

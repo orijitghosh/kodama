@@ -137,7 +137,27 @@ export class PatPool {
     slot.failures = 0;
   }
 
-  /** Bench a token immediately - GitHub said 401/403, or the transport died. */
+  /**
+   * Bench a token until a moment GitHub named, rather than for the blanket hour.
+   *
+   * A 403 means two different things - bad credentials, or going too fast - and
+   * only the response headers tell them apart. A secondary limit clears in
+   * seconds, so benching a healthy token for an hour would cost more capacity
+   * than the limit that triggered it, during exactly the spike that triggered it.
+   *
+   * An absent or already-past reading falls back to the hour, and anything
+   * further out is clamped to it: a bogus header must not park a token for a day.
+   */
+  benchUntil(token: string, untilMs: number | null): void {
+    const slot = this.#slots.find((s) => s.token === token);
+    if (slot === undefined) return;
+    const now = this.#now();
+    const hour = now + 3_600_000;
+    slot.benchedUntilMs =
+      untilMs !== null && untilMs > now ? Math.min(Math.max(untilMs, now + 1_000), hour) : hour;
+  }
+
+  /** Bench a token immediately - GitHub said 401, or the transport died. */
   penalize(token: string, kind: "auth" | "transport"): void {
     const slot = this.#slots.find((s) => s.token === token);
     if (slot === undefined) return;

@@ -88,6 +88,28 @@ describe("PatPool", () => {
     expect(pool.stats()[0]!.benched).toBe(true);
   });
 
+  it("benches only until the moment GitHub named", () => {
+    let now = 1_000_000;
+    const pool = new PatPool(["a"], { now: () => now });
+    pool.benchUntil("a", now + 30_000);
+    expect(() => pool.acquire()).toThrow(PoolExhaustedError);
+
+    // A secondary limit clears in seconds. Sitting out the hour would cost more
+    // capacity than the limit itself, at the worst possible moment.
+    now += 31_000;
+    expect(pool.acquire()).toBe("a");
+  });
+
+  it("falls back to the hour with no moment named, and clamps an absurd one", () => {
+    let now = 1_000_000;
+    const pool = new PatPool(["a", "b"], { now: () => now });
+    pool.benchUntil("a", null);
+    pool.benchUntil("b", now + 86_400_000);
+
+    now += 3_600_001;
+    expect([pool.acquire(), pool.acquire()]).toEqual(["a", "b"]);
+  });
+
   it("tolerates two transport failures before benching", () => {
     const now = 1_000_000;
     const pool = new PatPool(["a"], { now: () => now });
@@ -142,6 +164,9 @@ describe("PatPool", () => {
     }).not.toThrow();
     expect(() => {
       pool.penalize("nope", "auth");
+    }).not.toThrow();
+    expect(() => {
+      pool.benchUntil("nope", null);
     }).not.toThrow();
     expect(pool.stats()[0]!.remaining).toBeNull();
   });

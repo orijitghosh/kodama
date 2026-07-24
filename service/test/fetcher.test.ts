@@ -250,6 +250,78 @@ describe("failure paths", () => {
     await expect(fetcher.fetch("hana", TODAY)).rejects.toMatchObject({ kind: "rateLimited" });
   });
 
+  it("benches a rate-limited token only until the reset it names", async () => {
+    const now = Date.parse("2026-07-21T12:00:00Z");
+    const github = fakeGitHub({
+      accounts: [HANA],
+      failWith: { Identity: 403 },
+      failHeaders: { "x-ratelimit-reset": String(Math.floor((now + 120_000) / 1000)) },
+    });
+    let clock = now;
+    const pool = new PatPool(["ghp_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"], { now: () => clock });
+    const fetcher = new Fetcher({
+      kv: new MemoryKV(),
+      client: new GitHubClient({ pool, fetchImpl: github.fetchImpl }),
+    });
+
+    await expect(fetcher.fetch("hana", TODAY)).rejects.toMatchObject({ kind: "rateLimited" });
+    expect(pool.stats()[0]!.benched).toBe(true);
+
+    // Two minutes on, the token is back. A 403 that was about speed must not
+    // cost the rest of the hour - that is capacity gone during a spike.
+    clock = now + 121_000;
+    expect(pool.stats()[0]!.benched).toBe(false);
+  });
+
+  it("believes a retry-after in seconds", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(Date.parse("2026-07-21T12:00:00Z"));
+    try {
+      const github = fakeGitHub({
+        accounts: [HANA],
+        failWith: { Identity: 429 },
+        failHeaders: { "retry-after": "45" },
+      });
+      const pool = new PatPool(["ghp_cccccccccccccccccccccccccccccccccccc"]);
+      const fetcher = new Fetcher({
+        kv: new MemoryKV(),
+        client: new GitHubClient({ pool, fetchImpl: github.fetchImpl }),
+      });
+
+      await expect(fetcher.fetch("hana", TODAY)).rejects.toMatchObject({ kind: "rateLimited" });
+      expect(pool.stats()[0]!.benched).toBe(true);
+
+      vi.setSystemTime(Date.parse("2026-07-21T12:00:46Z"));
+      expect(pool.stats()[0]!.benched).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("stops spending on a token GitHub rejected on the primary limit", async () => {
+    const now = Date.parse("2026-07-21T12:00:00Z");
+    const github = fakeGitHub({
+      accounts: [HANA],
+      graphqlError: { Identity: { message: "API rate limit exceeded", type: "RATE_LIMITED" } },
+      failHeaders: { "x-ratelimit-reset": String(Math.floor((now + 600_000) / 1000)) },
+    });
+    const pool = new PatPool(["ghp_ffffffffffffffffffffffffffffffffffff"], { now: () => now });
+    const fetcher = new Fetcher({
+      kv: new MemoryKV(),
+      client: new GitHubClient({ pool, fetchImpl: github.fetchImpl }),
+    });
+
+    // The rejection arrives as a 200 with no `data`, so there is no quota reading
+    // to bench on - only the headers.
+    await expect(fetcher.fetch("hana", TODAY)).rejects.toMatchObject({ kind: "rateLimited" });
+    expect(pool.stats()[0]!.benched).toBe(true);
+
+    // And the next caller costs GitHub nothing: refused before the round trip.
+    const spent = github.calls.length;
+    await expect(fetcher.fetch("hana", TODAY)).rejects.toBeInstanceOf(PoolExhaustedError);
+    expect(github.calls.length).toBe(spent);
+  });
+
   it("classifies a dropped connection as network", async () => {
     const { fetcher } = build({ networkError: true });
     await expect(fetcher.fetch("hana", TODAY)).rejects.toMatchObject({ kind: "network" });

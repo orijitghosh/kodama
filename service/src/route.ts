@@ -52,6 +52,11 @@ export interface RouteDeps {
    * drive the route without one; production always passes the container's.
    */
   meter?: Meter;
+  /**
+   * Wall clock, only ever used to turn a bench deadline into a `retry-after`
+   * duration. The render path still sees nothing finer than `today()`.
+   */
+  nowMs?: () => number;
 }
 
 /**
@@ -100,7 +105,12 @@ export async function handleTree(request: Request, deps: RouteDeps): Promise<Res
   } catch (err) {
     const state = kindFor(err);
     deps.meter?.record(DEGRADED_STATES.has(state));
-    return svgResponse(errorFor(state, options), { warnings, cache: CACHE_SOFT, state });
+    return svgResponse(errorFor(state, options), {
+      warnings,
+      cache: CACHE_SOFT,
+      state,
+      retryAfterS: retryAfterFor(err, (deps.nowMs ?? Date.now)()),
+    });
   }
 
   try {
@@ -137,6 +147,22 @@ function kindFor(err: unknown): ErrorKind {
   return "comeBack";
 }
 
+/**
+ * How long to tell the caller to wait, when the failure named a moment.
+ *
+ * Only pool exhaustion knows one: it is benched until GitHub's reset. Floored at
+ * a minute so the header agrees with the picture the seedling is drawing ("come
+ * back soon"), capped at an hour because that is the longest window GitHub has.
+ *
+ * It rides on a 200, so no cache acts on it - it is for the landing page and for
+ * whoever is reading headers during an incident, not for camo.
+ */
+function retryAfterFor(err: unknown, nowMs: number): number | null {
+  if (!(err instanceof PoolExhaustedError)) return null;
+  const seconds = Math.ceil((err.retryAtMs - nowMs) / 1000);
+  return Math.min(Math.max(seconds, 60), 3600);
+}
+
 function errorFor(kind: ErrorKind, options: RenderOptions): string {
   return errorSvg(kind, {
     theme: options.theme,
@@ -149,6 +175,7 @@ interface ResponseOptions {
   warnings: string[];
   cache: string;
   state?: string;
+  retryAfterS?: number | null;
 }
 
 function svgResponse(svg: string, options: ResponseOptions): Response {
@@ -159,6 +186,9 @@ function svgResponse(svg: string, options: ResponseOptions): Response {
   });
   if (options.state !== undefined && options.state !== "ok") {
     headers.set("x-kodama-state", options.state);
+  }
+  if (options.retryAfterS !== undefined && options.retryAfterS !== null) {
+    headers.set("retry-after", String(options.retryAfterS));
   }
   // Debuggability without breakage: the image is correct, the header explains
   // why it is not the one that was asked for.
