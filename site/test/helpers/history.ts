@@ -20,7 +20,7 @@ export function richHistory(login = "hana"): NormalizedHistory {
   }
 
   return {
-    v: 1,
+    v: 2,
     login,
     fetchedAt: TODAY,
     createdAt: "2013-05-02",
@@ -44,5 +44,12 @@ export function richHistory(login = "hana"): NormalizedHistory {
       { name: "TypeScript", share: 0.6 },
       { name: "Rust", share: 0.3 },
     ],
+    repoMix: {
+      hhi: 0.28,
+      ownShare: 0.62,
+      breadth: 12,
+      orgs: 3,
+      anchor: { nameWithOwner: `${login}/atlas`, years: 9, share: 0.41 },
+    },
   };
 }

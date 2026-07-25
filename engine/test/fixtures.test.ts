@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { normalizedHistorySchema } from "./history-schema.js";
-import { assertHistoryV1, KodamaSchemaError } from "../src/validate.js";
+import { assertHistory, KodamaSchemaError } from "../src/validate.js";
 import { daysBetween, isoWeekOf, isoWeekStart } from "../src/date.js";
 import { loadFixture, FIXTURE_NAMES, FIXTURE_ANCHOR_DATE } from "./helpers/fixtures.js";
 
@@ -37,15 +37,15 @@ describe("committed fixtures", () => {
       });
 
       it("round-trips through the runtime guard byte-identically", () => {
-        const guarded = assertHistoryV1(raw);
-        const reguarded = assertHistoryV1(JSON.parse(JSON.stringify(guarded)));
+        const guarded = assertHistory(raw);
+        const reguarded = assertHistory(JSON.parse(JSON.stringify(guarded)));
         expect(reguarded).toEqual(guarded);
       });
 
       it("agrees with the zod schema on acceptance", () => {
         // The two validators are independent implementations of §2; if they
         // ever disagree, one of them has drifted from the spec.
-        expect(() => assertHistoryV1(raw)).not.toThrow();
+        expect(() => assertHistory(raw)).not.toThrow();
         expect(normalizedHistorySchema.safeParse(raw).success).toBe(true);
       });
 
@@ -106,17 +106,45 @@ describe("the whale fixture stays inside the cap ceiling", () => {
 describe("the guard rejects what the renderer cannot index", () => {
   const base = loadFixture("newcomer");
 
-  it("refuses a version other than 1", () => {
+  it.each([1, 3])("refuses version %i and reports which it was", (version) => {
+    // v1 is not a historical curiosity: it is every history cached before form
+    // shipped. Reporting the version is what lets the service purge the entry
+    // and refetch, rather than render a tree from a repo mix nobody measured.
     const error = (() => {
       try {
-        assertHistoryV1({ ...base, v: 2 });
+        assertHistory({ ...base, v: version });
         return null;
       } catch (e) {
         return e as KodamaSchemaError;
       }
     })();
     expect(error).toBeInstanceOf(KodamaSchemaError);
-    expect(error?.version).toBe(2);
+    expect(error?.version).toBe(version);
+  });
+
+  it.each([
+    ["a missing repo mix", { ...base, repoMix: undefined }],
+    ["a non-object repo mix", { ...base, repoMix: 3 }],
+    ["an hhi above 1", { ...base, repoMix: { ...base.repoMix, hhi: 1.2 } }],
+    ["a negative own share", { ...base, repoMix: { ...base.repoMix, ownShare: -0.1 } }],
+    ["a fractional breadth", { ...base, repoMix: { ...base.repoMix, breadth: 2.5 } }],
+    ["more owners than repos", { ...base, repoMix: { ...base.repoMix, breadth: 1, orgs: 2 } }],
+    [
+      "an anchor without an owner",
+      { ...base, repoMix: { ...base.repoMix, anchor: { nameWithOwner: "solo", years: 1, share: 1 } } },
+    ],
+    [
+      "an anchor share above 1",
+      {
+        ...base,
+        repoMix: {
+          ...base.repoMix,
+          anchor: { nameWithOwner: "a/b", years: 1, share: 1.5 },
+        },
+      },
+    ],
+  ])("rejects %s", (_label, payload) => {
+    expect(() => assertHistory(payload)).toThrow(KodamaSchemaError);
   });
 
   it.each([
@@ -130,7 +158,7 @@ describe("the guard rejects what the renderer cannot index", () => {
     ["language shares above 1", { ...base, languages: [{ name: "C", share: 0.8 }, { name: "D", share: 0.8 }] }],
     ["a current streak beyond the longest", { ...base, streak: { ...base.streak, current: 999, longest: 5 } }],
   ])("rejects %s", (_label, payload) => {
-    expect(() => assertHistoryV1(payload)).toThrow(KodamaSchemaError);
+    expect(() => assertHistory(payload)).toThrow(KodamaSchemaError);
   });
 
   it.each([
@@ -150,12 +178,12 @@ describe("the guard rejects what the renderer cannot index", () => {
     ["an array payload", [1, 2, 3]],
     ["null", null],
   ])("rejects %s", (_label, payload) => {
-    expect(() => assertHistoryV1(payload)).toThrow(KodamaSchemaError);
+    expect(() => assertHistory(payload)).toThrow(KodamaSchemaError);
   });
 
   it("reports no version for an unrecognisable payload", () => {
     try {
-      assertHistoryV1({ v: "one" });
+      assertHistory({ v: "one" });
       expect.unreachable("should have thrown");
     } catch (error) {
       expect((error as KodamaSchemaError).version).toBeUndefined();

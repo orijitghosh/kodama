@@ -1,5 +1,5 @@
 {
-  "v": 1,
+  "v": 2,
   "login": "spammer",
   "fetchedAt": "2026-07-15",
   "createdAt": "2025-05-21",
@@ -33,5 +33,16 @@
       "name": "JavaScript",
       "share": 1
     }
-  ]
+  ],
+  "repoMix": {
+    "hhi": 1,
+    "ownShare": 1,
+    "breadth": 1,
+    "orgs": 0,
+    "anchor": {
+      "nameWithOwner": "spammer/commit-loop",
+      "years": 1,
+      "share": 1
+    }
+  }
 }

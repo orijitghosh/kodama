@@ -16,7 +16,7 @@ import {
   isoWeekOf,
 } from "../src/date.js";
 import { mulberry32 } from "../src/rng.js";
-import type { NormalizedHistory, PRStub, WeekCell } from "../src/types.js";
+import type { NormalizedHistory, PRStub, RepoMix, WeekCell } from "../src/types.js";
 
 /** Every fixture is described relative to this date. */
 export const FIXTURE_TODAY = "2026-07-15";
@@ -114,6 +114,23 @@ function mergedPRs(
   }));
 }
 
+/**
+ * Repo mixes, authored per persona rather than simulated (v2).
+ *
+ * The other fields of a fixture are generated from a seeded day walk, but the
+ * repo mix has no day-level source to walk - it is a summary of a hundred repo
+ * rows the fixtures never contained. So each persona states its own, and each
+ * one is chosen to be the mix that persona's story implies: the grinder pours
+ * everything into two of his own repos, the maintainer is spread across other
+ * people's, the veteran has one long-lived project still ticking over.
+ *
+ * These are also the inputs the form ladder will be calibrated against (C.5), so
+ * a persona whose mix contradicts its silhouette is a fixture bug, not a
+ * threshold bug. `NOTHING` is the honest mix for an account with no qualifying
+ * repos at all.
+ */
+const NOTHING: RepoMix = { hhi: 0, ownShare: 0, breadth: 0, orgs: 0, anchor: null };
+
 interface FixtureSpec {
   name: string;
   build(): NormalizedHistory;
@@ -125,7 +142,7 @@ const specs: FixtureSpec[] = [
     // embarrassment (PRD "giants and ghosts").
     name: "ghost",
     build: () => ({
-      v: 1,
+      v: 2,
       login: "ghost",
       fetchedAt: FIXTURE_TODAY,
       createdAt: "2025-11-02",
@@ -142,6 +159,8 @@ const specs: FixtureSpec[] = [
       streak: { current: 0, longest: 0, lastActiveDate: "2025-11-02" },
       recentPRs: [],
       languages: [],
+      // No commits anywhere, so nothing to be spread across.
+      repoMix: NOTHING,
     }),
   },
   {
@@ -153,7 +172,7 @@ const specs: FixtureSpec[] = [
         perDay: (rng) => rng.int(1, 4),
       });
       return {
-        v: 1,
+        v: 2,
         login: "newcomer",
         fetchedAt: FIXTURE_TODAY,
         createdAt: created,
@@ -173,6 +192,14 @@ const specs: FixtureSpec[] = [
           { name: "Python", share: 0.71 },
           { name: "Shell", share: 0.19 },
         ],
+        // Three weeks in, one repo of her own. Everything she has is in it.
+        repoMix: {
+          hhi: 1,
+          ownShare: 1,
+          breadth: 1,
+          orgs: 0,
+          anchor: { nameWithOwner: "newcomer/first-steps", years: 0, share: 1 },
+        },
       };
     },
   },
@@ -185,7 +212,7 @@ const specs: FixtureSpec[] = [
         perDay: (rng) => rng.int(3, 14),
       });
       return {
-        v: 1,
+        v: 2,
         login: "grinder",
         fetchedAt: FIXTURE_TODAY,
         createdAt: created,
@@ -206,6 +233,15 @@ const specs: FixtureSpec[] = [
           { name: "Rust", share: 0.26 },
           { name: "CSS", share: 0.11 },
         ],
+        // Head down in two of his own projects, with one repo of someone
+        // else's on the side. Concentrated, and almost entirely his.
+        repoMix: {
+          hhi: 0.405,
+          ownShare: 0.9,
+          breadth: 4,
+          orgs: 1,
+          anchor: { nameWithOwner: "grinder/side-quest", years: 2, share: 0.55 },
+        },
       };
     },
   },
@@ -220,7 +256,7 @@ const specs: FixtureSpec[] = [
         perDay: (rng) => rng.int(1, 8),
       });
       return {
-        v: 1,
+        v: 2,
         login: "maintainer",
         fetchedAt: FIXTURE_TODAY,
         createdAt: created,
@@ -241,6 +277,16 @@ const specs: FixtureSpec[] = [
           { name: "TypeScript", share: 0.22 },
           { name: "Makefile", share: 0.08 },
         ],
+        // The mix that actually names a maintainer: scattered across other
+        // people's repositories, in half a dozen organisations, owning a
+        // minority of the work she commits to.
+        repoMix: {
+          hhi: 0.09,
+          ownShare: 0.35,
+          breadth: 34,
+          orgs: 6,
+          anchor: { nameWithOwner: "maintainer/gopls-helpers", years: 7, share: 0.22 },
+        },
       };
     },
   },
@@ -254,7 +300,7 @@ const specs: FixtureSpec[] = [
         perDay: () => DAILY_COMMIT_CAP,
       });
       return {
-        v: 1,
+        v: 2,
         login: "whale",
         fetchedAt: FIXTURE_TODAY,
         createdAt: created,
@@ -275,6 +321,15 @@ const specs: FixtureSpec[] = [
           { name: "C++", share: 0.21 },
           { name: "Assembly", share: 0.13 },
         ],
+        // One enormous codebase he does not own, plus a few of his own tools.
+        // Ten years on the same tree.
+        repoMix: {
+          hhi: 0.72,
+          ownShare: 0.15,
+          breadth: 9,
+          orgs: 3,
+          anchor: { nameWithOwner: "whale/perf-tools", years: 9, share: 0.08 },
+        },
       };
     },
   },
@@ -287,7 +342,7 @@ const specs: FixtureSpec[] = [
         perDay: (rng) => rng.int(1, 6),
       });
       return {
-        v: 1,
+        v: 2,
         login: "veteran",
         fetchedAt: FIXTURE_TODAY,
         createdAt: created,
@@ -307,6 +362,15 @@ const specs: FixtureSpec[] = [
           { name: "Java", share: 0.44 },
           { name: "Kotlin", share: 0.3 },
         ],
+        // Eleven years, one long-lived project of his own still ticking over.
+        // This is the mix root-over-rock is meant to find.
+        repoMix: {
+          hhi: 0.61,
+          ownShare: 0.88,
+          breadth: 5,
+          orgs: 1,
+          anchor: { nameWithOwner: "veteran/legacy-parser", years: 11, share: 0.74 },
+        },
       };
     },
   },
@@ -322,7 +386,7 @@ const specs: FixtureSpec[] = [
       });
       const streak = computeStreak(days, FIXTURE_TODAY);
       return {
-        v: 1,
+        v: 2,
         login: "streak-broken",
         fetchedAt: FIXTURE_TODAY,
         createdAt: created,
@@ -339,6 +403,13 @@ const specs: FixtureSpec[] = [
         streak: { ...streak, current: 0, longest: Math.max(streak.longest, 214) },
         recentPRs: mergedPRs(5, 6, 4, [1, 2]),
         languages: [{ name: "Ruby", share: 0.66 }],
+        repoMix: {
+          hhi: 0.44,
+          ownShare: 0.7,
+          breadth: 6,
+          orgs: 2,
+          anchor: { nameWithOwner: "streak-broken/daily-ledger", years: 3, share: 0.6 },
+        },
       };
     },
   },
@@ -354,7 +425,7 @@ const specs: FixtureSpec[] = [
       });
       const streak = computeStreak(days, FIXTURE_TODAY);
       return {
-        v: 1,
+        v: 2,
         login: "dormant",
         fetchedAt: FIXTURE_TODAY,
         createdAt: created,
@@ -371,6 +442,13 @@ const specs: FixtureSpec[] = [
         streak,
         recentPRs: mergedPRs(4, 150, 12, [1]),
         languages: [{ name: "Elixir", share: 0.58 }, { name: "HTML", share: 0.2 }],
+        repoMix: {
+          hhi: 0.5,
+          ownShare: 0.8,
+          breadth: 4,
+          orgs: 1,
+          anchor: { nameWithOwner: "dormant/phoenix-shop", years: 5, share: 0.68 },
+        },
       };
     },
   },
@@ -391,7 +469,7 @@ const specs: FixtureSpec[] = [
       const days = new Map([...past.days, ...back.days]);
       const { weeks, total } = summarise(days);
       return {
-        v: 1,
+        v: 2,
         login: "awakening",
         fetchedAt: FIXTURE_TODAY,
         createdAt: created,
@@ -408,6 +486,13 @@ const specs: FixtureSpec[] = [
         streak: computeStreak(days, FIXTURE_TODAY),
         recentPRs: mergedPRs(3, 1, 2, [1, 2]),
         languages: [{ name: "Zig", share: 0.61 }],
+        repoMix: {
+          hhi: 0.38,
+          ownShare: 0.75,
+          breadth: 5,
+          orgs: 1,
+          anchor: { nameWithOwner: "awakening/zig-toy", years: 3, share: 0.55 },
+        },
       };
     },
   },
@@ -424,7 +509,7 @@ const specs: FixtureSpec[] = [
       }
       const { weeks, total } = summarise(days);
       return {
-        v: 1,
+        v: 2,
         login: "spammer",
         fetchedAt: FIXTURE_TODAY,
         createdAt: created,
@@ -441,6 +526,16 @@ const specs: FixtureSpec[] = [
         streak: computeStreak(days, FIXTURE_TODAY),
         recentPRs: [],
         languages: [{ name: "JavaScript", share: 1 }],
+        // The other half of the anti-gaming story. He also pushed a commit into
+        // forty-nine throwaway repos that week; not one of them clears the
+        // qualifying filter, so breadth is 1 and the broom style stays shut.
+        repoMix: {
+          hhi: 1,
+          ownShare: 1,
+          breadth: 1,
+          orgs: 0,
+          anchor: { nameWithOwner: "spammer/commit-loop", years: 1, share: 1 },
+        },
       };
     },
   },

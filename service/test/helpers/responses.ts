@@ -34,11 +34,34 @@ export function runOfDays(lastDate: string, count: number, perDay: number): DayI
   return days;
 }
 
+/** A `commitContributionsByRepository` row, defaulted so a test states only what it means. */
+export interface RepoInput {
+  nameWithOwner: string;
+  commits: number;
+  isFork?: boolean;
+  createdAt?: string;
+  /** Defaults to the owner half of `nameWithOwner`. */
+  owner?: string;
+}
+
+export function repoRows(repos: RepoInput[]): unknown[] {
+  return repos.map((repo) => ({
+    repository: {
+      nameWithOwner: repo.nameWithOwner,
+      isFork: repo.isFork ?? false,
+      createdAt: `${repo.createdAt ?? "2020-01-06"}T00:00:00Z`,
+      owner: { login: repo.owner ?? repo.nameWithOwner.split("/")[0]! },
+    },
+    contributions: { totalCount: repo.commits },
+  }));
+}
+
 export interface ProfileOverrides {
   login?: string;
   createdAt?: string;
   reviews?: number;
   days?: DayInput[];
+  repoMix?: RepoInput[];
   mergedTotal?: number;
   mergedNodes?: ({ mergedAt: string | null; additions: number } | null)[];
   openPRs?: number;
@@ -58,6 +81,7 @@ export function profileResponse(overrides: ProfileOverrides = {}): unknown {
       contributionsCollection: {
         totalPullRequestReviewContributions: overrides.reviews ?? 0,
         contributionCalendar: calendar(overrides.days ?? []),
+        commitContributionsByRepository: repoRows(overrides.repoMix ?? []),
       },
       mergedPRs: {
         totalCount: overrides.mergedTotal ?? 0,
@@ -72,12 +96,13 @@ export function profileResponse(overrides: ProfileOverrides = {}): unknown {
   };
 }
 
-export function yearResponse(days: DayInput[], reviews = 0): unknown {
+export function yearResponse(days: DayInput[], reviews = 0, repos: RepoInput[] = []): unknown {
   return {
     user: {
       contributionsCollection: {
         totalPullRequestReviewContributions: reviews,
         contributionCalendar: calendar(days),
+        commitContributionsByRepository: repoRows(repos),
       },
     },
   };

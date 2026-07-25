@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { assertHistoryV1 } from "../../src/validate.js";
+import { assertHistory } from "../../src/validate.js";
 import type { NormalizedHistory } from "../../src/types.js";
 
 const fixturesDir = resolve(import.meta.dirname, "../../fixtures");
@@ -25,7 +25,7 @@ export function loadFixture(name: string): NormalizedHistory {
   const cached = cache.get(name);
   if (cached !== undefined) return cached;
   const raw: unknown = JSON.parse(readFileSync(resolve(fixturesDir, `${name}.json`), "utf8"));
-  const history = assertHistoryV1(raw);
+  const history = assertHistory(raw);
   cache.set(name, history);
   return history;
 }

@@ -165,8 +165,69 @@ describe("caching", () => {
   it("treats a future schema version as a miss", async () => {
     const { fetcher, kv } = build();
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    await kv.set(historyKey("hana"), JSON.stringify({ v: 2, login: "hana" }), 60);
+    await kv.set(historyKey("hana"), JSON.stringify({ v: 3, login: "hana" }), 60);
     await expect(fetcher.fetch("hana", TODAY)).resolves.toMatchObject({ source: "refreshed" });
+  });
+
+  it("purges a v1 entry and refetches it as v2 (D-042)", async () => {
+    // The whole migration, end to end: every history cached before form shipped
+    // is a v1 entry, and this is the path that turns each one into one cold
+    // fetch instead of a tree drawn from a repo mix nobody measured.
+    const { fetcher, kv, github } = build();
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    const v1 = {
+      v: 1,
+      login: "hana",
+      fetchedAt: TODAY,
+      createdAt: "2024-03-04",
+      weeks: [{ w: "2026-W29", c: 12 }],
+      totals: {
+        commits: 12,
+        prsMerged: 1,
+        prsOpen: 0,
+        reviews: 0,
+        issuesClosed: 0,
+        discussions: 0,
+        starsReceived: 3,
+      },
+      streak: { current: 2, longest: 5, lastActiveDate: TODAY },
+      recentPRs: [],
+      languages: [{ name: "Rust", share: 0.8 }],
+    };
+    await kv.set(historyKey("hana"), JSON.stringify(v1), 60);
+
+    // Fresh by date - the only reason this is refetched is the version.
+    const result = await fetcher.fetch("hana", TODAY);
+    expect(result.source).toBe("refreshed");
+    expect(result.history.v).toBe(2);
+    expect(result.history.repoMix).toBeDefined();
+    expect(github.countOf("Identity")).toBe(1);
+
+    // And the unusable entry is gone, so tomorrow's request does not pay to
+    // rediscover the same problem.
+    const stored = await kv.get(historyKey("hana"));
+    expect(stored).not.toBeNull();
+    expect((JSON.parse(stored!) as { v: number }).v).toBe(2);
+  });
+
+  it("refetches a year window cached before the repo branch existed", async () => {
+    // Year entries are immutable for 30 days (D-030), so a v1-era entry would
+    // otherwise keep a third of an account's repo mix invisible for a month.
+    // A cached response with no repository rows fails the shape and is refetched.
+    const { fetcher, kv, github } = build();
+    const staleYear = {
+      user: {
+        contributionsCollection: {
+          totalPullRequestReviewContributions: 5,
+          contributionCalendar: { weeks: [] },
+        },
+      },
+    };
+    await kv.set(yearKey("hana", 0), JSON.stringify(staleYear), 60);
+
+    await fetcher.fetch("hana", TODAY);
+    expect(github.countOf("Year")).toBe(yearWindows("2024-03-04", TODAY).length);
   });
 
   it("still serves when the store is dead end to end", async () => {

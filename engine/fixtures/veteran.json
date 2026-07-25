@@ -1,5 +1,5 @@
 {
-  "v": 1,
+  "v": 2,
   "login": "veteran",
   "fetchedAt": "2026-07-15",
   "createdAt": "2015-06-18",
@@ -2306,5 +2306,16 @@
       "name": "Kotlin",
       "share": 0.3
     }
-  ]
+  ],
+  "repoMix": {
+    "hhi": 0.61,
+    "ownShare": 0.88,
+    "breadth": 5,
+    "orgs": 1,
+    "anchor": {
+      "nameWithOwner": "veteran/legacy-parser",
+      "years": 11,
+      "share": 0.74
+    }
+  }
 }

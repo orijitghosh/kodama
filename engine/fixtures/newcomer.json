@@ -1,5 +1,5 @@
 {
-  "v": 1,
+  "v": 2,
   "login": "newcomer",
   "fetchedAt": "2026-07-15",
   "createdAt": "2026-06-22",
@@ -50,5 +50,16 @@
       "name": "Shell",
       "share": 0.19
     }
-  ]
+  ],
+  "repoMix": {
+    "hhi": 1,
+    "ownShare": 1,
+    "breadth": 1,
+    "orgs": 0,
+    "anchor": {
+      "nameWithOwner": "newcomer/first-steps",
+      "years": 0,
+      "share": 1
+    }
+  }
 }

@@ -35,7 +35,7 @@ import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "nod
 import { resolve } from "node:path";
 import { render } from "../src/render.js";
 import { SPECIES_NAMES, speciesByName } from "../src/species.js";
-import { assertHistoryV1 } from "../src/validate.js";
+import { assertHistory } from "../src/validate.js";
 import type { NormalizedHistory, RenderOptions, ThemeName } from "../src/types.js";
 
 const fixturesDir = resolve(import.meta.dirname, "../fixtures");
@@ -50,7 +50,7 @@ for (const file of readdirSync(outDir)) {
 }
 
 function load(name: string): NormalizedHistory {
-  return assertHistoryV1(
+  return assertHistory(
     JSON.parse(readFileSync(resolve(fixturesDir, `${name}.json`), "utf8")),
   );
 }

@@ -37,9 +37,45 @@ export const langShareSchema = z.object({
   share: z.number().min(0).max(1),
 });
 
+const unitFraction = z.number().min(0).max(1);
+
+export const repoAnchorSchema = z.object({
+  nameWithOwner: z.string().regex(/^[^/\s]+\/[^/\s]+$/, "expected owner/name"),
+  years: nonNegativeInt,
+  share: unitFraction,
+});
+
+export const repoMixSchema = z
+  .object({
+    hhi: unitFraction,
+    ownShare: unitFraction,
+    breadth: nonNegativeInt,
+    orgs: nonNegativeInt,
+    anchor: repoAnchorSchema.nullable(),
+  })
+  .refine((mix) => mix.orgs <= mix.breadth, {
+    message: "orgs cannot exceed breadth - an owner is only counted through a repo",
+    path: ["orgs"],
+  })
+  .refine((mix) => mix.breadth > 0 || (mix.hhi === 0 && mix.ownShare === 0), {
+    message: "with nothing qualifying there are no shares to hold",
+    path: ["hhi"],
+  })
+  .refine((mix) => mix.breadth > 0 || mix.anchor === null, {
+    message: "an anchor repo has to be one of the qualifying repos",
+    path: ["anchor"],
+  })
+  // A Herfindahl index over n shares that sum to 1 cannot fall below 1/n. A
+  // value under that floor means the shares were not normalized over the same
+  // set the breadth was counted from - the likeliest bug in the normalizer.
+  .refine((mix) => mix.breadth === 0 || mix.hhi >= 1 / mix.breadth - 1e-3, {
+    message: "hhi is below the 1/breadth floor, so shares and breadth disagree",
+    path: ["hhi"],
+  });
+
 export const normalizedHistorySchema = z
   .object({
-    v: z.literal(1),
+    v: z.literal(2),
     login: z.string().min(1),
     fetchedAt: civilDate,
     createdAt: civilDate,
@@ -60,6 +96,7 @@ export const normalizedHistorySchema = z
     }),
     recentPRs: z.array(prStubSchema).max(10),
     languages: z.array(langShareSchema).max(5),
+    repoMix: repoMixSchema,
   })
   .strict()
   .refine((h) => h.streak.current <= h.streak.longest, {

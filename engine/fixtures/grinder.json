@@ -1,5 +1,5 @@
 {
-  "v": 1,
+  "v": 2,
   "login": "grinder",
   "fetchedAt": "2026-07-15",
   "createdAt": "2024-06-05",
@@ -518,5 +518,16 @@
       "name": "CSS",
       "share": 0.11
     }
-  ]
+  ],
+  "repoMix": {
+    "hhi": 0.405,
+    "ownShare": 0.9,
+    "breadth": 4,
+    "orgs": 1,
+    "anchor": {
+      "nameWithOwner": "grinder/side-quest",
+      "years": 2,
+      "share": 0.55
+    }
+  }
 }

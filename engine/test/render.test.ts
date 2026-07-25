@@ -425,7 +425,7 @@ describe("render validates its inputs", () => {
   });
 
   it("rejects a history of the wrong schema version", () => {
-    expect(() => render({ ...loadFixture("grinder"), v: 2 as 1 }, DATE, opts())).toThrow();
+    expect(() => render({ ...loadFixture("grinder"), v: 1 as 2 }, DATE, opts())).toThrow();
   });
 });
 

@@ -9,7 +9,7 @@ import { FIXTURE_ANCHOR_DATE } from "./fixtures.js";
  */
 export function historyWith(overrides: DeepPartialHistory = {}): NormalizedHistory {
   const base: NormalizedHistory = {
-    v: 1,
+    v: 2,
     login: "fixture",
     fetchedAt: FIXTURE_ANCHOR_DATE,
     // A fixed date chosen not to fall on the anchor's month-and-day, so the
@@ -28,6 +28,9 @@ export function historyWith(overrides: DeepPartialHistory = {}): NormalizedHisto
     streak: { current: 0, longest: 0, lastActiveDate: FIXTURE_ANCHOR_DATE },
     recentPRs: [],
     languages: [],
+    // Inert like the rest: nothing qualifying, so no form rule can fire off the
+    // back of a default a test did not ask for.
+    repoMix: { hhi: 0, ownShare: 0, breadth: 0, orgs: 0, anchor: null },
   };
 
   return {
@@ -35,12 +38,14 @@ export function historyWith(overrides: DeepPartialHistory = {}): NormalizedHisto
     ...overrides,
     totals: { ...base.totals, ...overrides.totals },
     streak: { ...base.streak, ...overrides.streak },
+    repoMix: { ...base.repoMix, ...overrides.repoMix },
   } as NormalizedHistory;
 }
 
-type DeepPartialHistory = Partial<Omit<NormalizedHistory, "totals" | "streak">> & {
+type DeepPartialHistory = Partial<Omit<NormalizedHistory, "totals" | "streak" | "repoMix">> & {
   totals?: Partial<NormalizedHistory["totals"]>;
   streak?: Partial<NormalizedHistory["streak"]>;
+  repoMix?: Partial<NormalizedHistory["repoMix"]>;
 };
 
 /**

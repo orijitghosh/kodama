@@ -18,9 +18,36 @@ const contributionCalendar = z.object({
   weeks: z.array(z.object({ contributionDays: z.array(contributionDay) })),
 });
 
+/**
+ * One repository's commits inside one window (NormalizedHistory v2).
+ *
+ * `commitContributionsByRepository` is a plain list rather than a connection, so
+ * the elements are non-null - but the fields are typed defensively anyway,
+ * because that is the house rule for anything crossing this boundary.
+ */
+const commitsByRepository = z.object({
+  repository: z.object({
+    nameWithOwner: z.string().min(1),
+    isFork: z.boolean(),
+    /** ISO 8601 datetime; only the date half is used. */
+    createdAt: z.string().min(10),
+    owner: z.object({ login: z.string().min(1) }),
+  }),
+  contributions: z.object({ totalCount: z.number().int().nonnegative() }),
+});
+
 const contributionsCollection = z.object({
   totalPullRequestReviewContributions: z.number().int().nonnegative(),
   contributionCalendar,
+  /**
+   * Required, not optional, and that is the migration.
+   *
+   * A year entry cached before v2 has no repo branch, so it fails this parse and
+   * is refetched (`fetcher.#year` treats an unparseable entry as a miss). Making
+   * it nullish instead would let stale entries through and silently compute a
+   * form from a third of somebody's repo history for up to thirty days.
+   */
+  commitContributionsByRepository: z.array(commitsByRepository),
 });
 
 const totalCount = z.object({ totalCount: z.number().int().nonnegative() });
@@ -118,6 +145,7 @@ export const languagesResponseSchema = z.object({
   }),
 });
 
+export type CommitsByRepository = z.infer<typeof commitsByRepository>;
 export type ProfileResponse = z.infer<typeof profileResponseSchema>;
 export type YearResponse = z.infer<typeof yearResponseSchema>;
 export type IdentityResponse = z.infer<typeof identityResponseSchema>;

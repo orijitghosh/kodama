@@ -1,5 +1,5 @@
 {
-  "v": 1,
+  "v": 2,
   "login": "whale",
   "fetchedAt": "2026-07-15",
   "createdAt": "2015-12-30",
@@ -2278,5 +2278,16 @@
       "name": "Assembly",
       "share": 0.13
     }
-  ]
+  ],
+  "repoMix": {
+    "hhi": 0.72,
+    "ownShare": 0.15,
+    "breadth": 9,
+    "orgs": 3,
+    "anchor": {
+      "nameWithOwner": "whale/perf-tools",
+      "years": 9,
+      "share": 0.08
+    }
+  }
 }

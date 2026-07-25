@@ -1,8 +1,15 @@
-import { assertHistoryV1, isoWeekOf, treeFacts } from "@kodama/engine";
+import { assertHistory, isoWeekOf, treeFacts } from "@kodama/engine";
 import { describe, expect, it } from "vitest";
 
-import { DAILY_COMMIT_CAP, KodamaShapeError, normalize } from "../src/normalize.js";
+import {
+  DAILY_COMMIT_CAP,
+  KodamaShapeError,
+  normalize,
+  REPO_MIN_COMMITS,
+  REPO_SUSTAINED_COMMITS,
+} from "../src/normalize.js";
 import { profileResponse, runOfDays, yearResponse } from "./helpers/responses.js";
+import type { RepoInput } from "./helpers/responses.js";
 
 const FETCHED_AT = "2026-07-21";
 
@@ -30,9 +37,9 @@ describe("normalize", () => {
     });
 
     expect(() => {
-      assertHistoryV1(history);
+      assertHistory(history);
     }).not.toThrow();
-    expect(history.v).toBe(1);
+    expect(history.v).toBe(2);
     expect(history.login).toBe("Hana");
     expect(history.fetchedAt).toBe(FETCHED_AT);
     expect(history.createdAt).toBe("2019-03-04");
@@ -332,5 +339,165 @@ describe("bad input", () => {
     expect(() =>
       normalize({ profile: profileResponse(), years: [{}], fetchedAt: FETCHED_AT }),
     ).toThrow(/year response 0/);
+  });
+});
+
+describe("the repo mix (v2)", () => {
+  const mixOf = (repos: RepoInput[], login = "hana"): ReturnType<typeof normalize>["repoMix"] =>
+    normalize({
+      profile: profileResponse({ login, days: runOfDays(FETCHED_AT, 14, 2), repoMix: repos }),
+      fetchedAt: FETCHED_AT,
+    }).repoMix;
+
+  it("reports nothing for an account with no commits anywhere", () => {
+    expect(mixOf([])).toEqual({ hhi: 0, ownShare: 0, breadth: 0, orgs: 0, anchor: null });
+  });
+
+  it("scores a single repo as total concentration", () => {
+    const mix = mixOf([{ nameWithOwner: "hana/only", commits: 40 }]);
+    expect(mix.hhi).toBe(1);
+    expect(mix.breadth).toBe(1);
+    expect(mix.ownShare).toBe(1);
+    expect(mix.orgs).toBe(0);
+  });
+
+  it("falls toward zero as commits scatter", () => {
+    const scattered = Array.from({ length: 20 }, (_, i) => ({
+      nameWithOwner: `org${String(i)}/repo`,
+      commits: 30,
+    }));
+    const mix = mixOf(scattered);
+    expect(mix.breadth).toBe(20);
+    expect(mix.hhi).toBeCloseTo(1 / 20, 3);
+    expect(mix.orgs).toBe(20);
+    expect(mix.ownShare).toBe(0);
+  });
+
+  it("separates what the account owns from what it visits", () => {
+    const mix = mixOf([
+      { nameWithOwner: "hana/mine", commits: 75 },
+      { nameWithOwner: "acme/theirs", commits: 25 },
+    ]);
+    expect(mix.ownShare).toBe(0.75);
+    expect(mix.orgs).toBe(1);
+    expect(mix.breadth).toBe(2);
+  });
+
+  it("matches ownership case-insensitively, as GitHub logins are", () => {
+    expect(mixOf([{ nameWithOwner: "Hana/mine", commits: 40, owner: "HANA" }], "hana").ownShare).toBe(1);
+  });
+
+  describe("the anti-gaming filter (§7.4)", () => {
+    it("ignores fifty repos with one commit each", () => {
+      // The attack the filter exists for: an afternoon with a shell loop would
+      // otherwise buy the broom silhouette outright.
+      const drive_bys = Array.from({ length: 50 }, (_, i) => ({
+        nameWithOwner: `hana/throwaway-${String(i)}`,
+        commits: 1,
+      }));
+      const mix = mixOf([{ nameWithOwner: "hana/real", commits: 200 }, ...drive_bys]);
+      expect(mix.breadth).toBe(1);
+      expect(mix.hhi).toBe(1);
+    });
+
+    it("ignores forks, so clicking fork fifty times is the same non-event", () => {
+      const mix = mixOf([
+        { nameWithOwner: "hana/real", commits: 60 },
+        { nameWithOwner: "hana/forked", commits: 900, isFork: true },
+      ]);
+      expect(mix.breadth).toBe(1);
+      expect(mix.anchor?.nameWithOwner).toBe("hana/real");
+    });
+
+    it("counts a repo with volume in a single window", () => {
+      expect(mixOf([{ nameWithOwner: "hana/a", commits: REPO_SUSTAINED_COMMITS }]).breadth).toBe(1);
+    });
+
+    it("does not count a repo that is under the commit floor", () => {
+      expect(mixOf([{ nameWithOwner: "hana/a", commits: REPO_MIN_COMMITS - 1 }]).breadth).toBe(0);
+    });
+
+    it("counts a modest repo that shows up across two account years", () => {
+      // Under the single-window volume bar, but sustained - which is the signal
+      // the weekly-spread test would have caught if weekly data existed.
+      const modest = [{ nameWithOwner: "acme/steady", commits: REPO_MIN_COMMITS }];
+      const history = normalize({
+        profile: profileResponse({ login: "hana", days: runOfDays("2025-01-10", 5, 1) }),
+        years: [
+          yearResponse(runOfDays("2025-01-10", 5, 1), 0, modest),
+          yearResponse(runOfDays(FETCHED_AT, 5, 1), 0, modest),
+        ],
+        fetchedAt: FETCHED_AT,
+      });
+      expect(history.repoMix.breadth).toBe(1);
+      expect(history.repoMix.orgs).toBe(1);
+    });
+  });
+
+  describe("the anchor repo", () => {
+    it("names the oldest owned repo still taking commits", () => {
+      const mix = mixOf([
+        { nameWithOwner: "hana/old", commits: 60, createdAt: "2015-06-01" },
+        { nameWithOwner: "hana/newer", commits: 90, createdAt: "2023-06-01" },
+      ]);
+      expect(mix.anchor?.nameWithOwner).toBe("hana/old");
+      expect(mix.anchor?.years).toBe(11);
+      expect(mix.anchor?.share).toBe(0.4);
+    });
+
+    it("never names a repo the account does not own", () => {
+      expect(mixOf([{ nameWithOwner: "acme/theirs", commits: 90, createdAt: "2010-01-01" }]).anchor).toBeNull();
+    });
+
+    it("never names a repo that has gone quiet", () => {
+      // Commits only in the first of two windows: long-lived, but no longer a
+      // living project, so there is no stone to grow over.
+      const history = normalize({
+        profile: profileResponse({ login: "hana", days: runOfDays("2025-01-10", 5, 1) }),
+        years: [
+          yearResponse(runOfDays("2025-01-10", 20, 3), 0, [
+            { nameWithOwner: "hana/abandoned", commits: 60, createdAt: "2012-01-01" },
+          ]),
+          yearResponse(runOfDays(FETCHED_AT, 20, 3), 0, [
+            { nameWithOwner: "hana/current", commits: 60, createdAt: "2024-01-01" },
+          ]),
+        ],
+        fetchedAt: FETCHED_AT,
+      });
+      expect(history.repoMix.anchor?.nameWithOwner).toBe("hana/current");
+    });
+  });
+
+  it("does not depend on the order the year windows arrive in", () => {
+    // The contract on NormalizeInput says order does not matter, and `anchor`
+    // reads recency from the calendar rather than from the array to keep it true.
+    const early = yearResponse(runOfDays("2025-01-10", 20, 3), 0, [
+      { nameWithOwner: "hana/older", commits: 60, createdAt: "2012-01-01" },
+    ]);
+    const late = yearResponse(runOfDays(FETCHED_AT, 20, 3), 0, [
+      { nameWithOwner: "hana/newer", commits: 60, createdAt: "2024-01-01" },
+    ]);
+    const profile = profileResponse({ login: "hana", days: [] });
+
+    const forwards = normalize({ profile, years: [early, late], fetchedAt: FETCHED_AT });
+    const backwards = normalize({ profile, years: [late, early], fetchedAt: FETCHED_AT });
+    expect(backwards.repoMix).toEqual(forwards.repoMix);
+    expect(forwards.repoMix.anchor?.nameWithOwner).toBe("hana/newer");
+  });
+
+  it("holds the mathematical floor a Herfindahl index has to obey", () => {
+    // hhi below 1/breadth would mean shares and breadth were counted over
+    // different sets - the likeliest bug in this file.
+    for (const count of [1, 2, 5, 17]) {
+      const repos = Array.from({ length: count }, (_, i) => ({
+        nameWithOwner: `hana/r${String(i)}`,
+        // Every one clears the single-window volume bar, so breadth is the
+        // count and the floor is being tested rather than the filter.
+        commits: REPO_SUSTAINED_COMMITS + i * 7,
+      }));
+      const mix = mixOf(repos);
+      expect(mix.breadth).toBe(count);
+      expect(mix.hhi).toBeGreaterThanOrEqual(1 / count - 1e-3);
+    }
   });
 });

@@ -1,5 +1,5 @@
 {
-  "v": 1,
+  "v": 2,
   "login": "awakening",
   "fetchedAt": "2026-07-15",
   "createdAt": "2022-07-16",
@@ -794,5 +794,16 @@
       "name": "Zig",
       "share": 0.61
     }
-  ]
+  ],
+  "repoMix": {
+    "hhi": 0.38,
+    "ownShare": 0.75,
+    "breadth": 5,
+    "orgs": 1,
+    "anchor": {
+      "nameWithOwner": "awakening/zig-toy",
+      "years": 3,
+      "share": 0.55
+    }
+  }
 }

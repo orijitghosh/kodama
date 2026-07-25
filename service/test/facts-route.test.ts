@@ -63,7 +63,7 @@ describe("handleFacts", () => {
     expect(body.date).toBe(TODAY);
     expect(body.stale).toBe(false);
     expect(body.facts.login).toBe("hana");
-    expect(body.history.v).toBe(1);
+    expect(body.history.v).toBe(2);
     expect(body.receipts.length).toBeGreaterThan(0);
   });
 

@@ -7,7 +7,14 @@
  * throws a typed error the API maps onto a designed SVG.
  */
 
-import type { LangShare, NormalizedHistory, PRStub, WeekCell } from "./types.js";
+import type {
+  LangShare,
+  NormalizedHistory,
+  PRStub,
+  RepoAnchor,
+  RepoMix,
+  WeekCell,
+} from "./types.js";
 import { isValidDate } from "./date.js";
 
 export class KodamaSchemaError extends Error {
@@ -45,6 +52,13 @@ function requireCivilDate(value: unknown, path: string): string {
 function requireString(value: unknown, path: string): string {
   if (typeof value !== "string" || value.length === 0) {
     throw new KodamaSchemaError(`${path} must be a non-empty string`);
+  }
+  return value;
+}
+
+function requireUnitFraction(value: unknown, path: string): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 1) {
+    throw new KodamaSchemaError(`${path} must be a fraction within 0..1, got ${String(value)}`);
   }
   return value;
 }
@@ -93,20 +107,67 @@ function validateLanguages(value: unknown): LangShare[] {
   return langs;
 }
 
+const REPO_NAME = /^[^/\s]+\/[^/\s]+$/;
+
+function validateAnchor(value: unknown): RepoAnchor | null {
+  if (value === null || value === undefined) return null;
+  if (!isRecord(value)) throw new KodamaSchemaError("repoMix.anchor must be an object or null");
+
+  const nameWithOwner = requireString(value["nameWithOwner"], "repoMix.anchor.nameWithOwner");
+  if (!REPO_NAME.test(nameWithOwner)) {
+    throw new KodamaSchemaError(
+      `repoMix.anchor.nameWithOwner must look like owner/name, got ${nameWithOwner}`,
+    );
+  }
+
+  return {
+    nameWithOwner,
+    years: requireFiniteInt(value["years"], "repoMix.anchor.years"),
+    share: requireUnitFraction(value["share"], "repoMix.anchor.share"),
+  };
+}
+
+function validateRepoMix(value: unknown): RepoMix {
+  if (!isRecord(value)) throw new KodamaSchemaError("repoMix must be an object");
+
+  const breadth = requireFiniteInt(value["breadth"], "repoMix.breadth");
+  const orgs = requireFiniteInt(value["orgs"], "repoMix.orgs");
+  // An owner is only ever counted through a repo, so more owners than repos is
+  // not a number the renderer could act on - it is a corrupt entry.
+  if (orgs > breadth) {
+    throw new KodamaSchemaError(
+      `repoMix.orgs (${String(orgs)}) cannot exceed repoMix.breadth (${String(breadth)})`,
+    );
+  }
+
+  return {
+    hhi: requireUnitFraction(value["hhi"], "repoMix.hhi"),
+    ownShare: requireUnitFraction(value["ownShare"], "repoMix.ownShare"),
+    breadth,
+    orgs,
+    anchor: validateAnchor(value["anchor"]),
+  };
+}
+
 /**
  * Validates and returns a NormalizedHistory. Throws {@link KodamaSchemaError}
  * for anything the renderer could not safely index - including a version other
- * than 1, which the API answers with the seedling plus a cache purge
+ * than 2, which the API answers with the seedling plus a cache purge
  * (SPEC-ENGINE §2).
+ *
+ * A v1 entry - every history cached before form shipped - lands here as exactly
+ * that: a recognisable history of the wrong version, carrying its version on the
+ * error so the service can purge and refetch rather than serve a tree computed
+ * from a repo mix nobody measured.
  */
-export function assertHistoryV1(value: unknown): NormalizedHistory {
+export function assertHistory(value: unknown): NormalizedHistory {
   if (!isRecord(value)) throw new KodamaSchemaError("history must be an object");
 
   const v = value["v"];
-  if (v !== 1) {
+  if (v !== 2) {
     const version = typeof v === "number" ? v : undefined;
     throw new KodamaSchemaError(
-      `unsupported NormalizedHistory version: ${String(v)} (engine speaks v1)`,
+      `unsupported NormalizedHistory version: ${String(v)} (engine speaks v2)`,
       version,
     );
   }
@@ -128,7 +189,7 @@ export function assertHistoryV1(value: unknown): NormalizedHistory {
   }
 
   return {
-    v: 1,
+    v: 2,
     login: requireString(value["login"], "login"),
     fetchedAt,
     createdAt,
@@ -149,5 +210,6 @@ export function assertHistoryV1(value: unknown): NormalizedHistory {
     },
     recentPRs: validatePRs(value["recentPRs"]),
     languages: validateLanguages(value["languages"]),
+    repoMix: validateRepoMix(value["repoMix"]),
   };
 }

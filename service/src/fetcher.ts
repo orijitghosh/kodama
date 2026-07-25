@@ -9,7 +9,7 @@
  * throw something carrying a `kind` the error-SVG table recognises.
  */
 
-import { addDays, assertHistoryV1 } from "@kodama/engine";
+import { addDays, assertHistory } from "@kodama/engine";
 import type { NormalizedHistory } from "@kodama/engine";
 
 import { GitHubError } from "./github/client.js";
@@ -136,7 +136,7 @@ export class Fetcher {
     const raw = await this.#kv.get(historyKey(login));
     if (raw === null) return null;
     try {
-      return assertHistoryV1(JSON.parse(raw));
+      return assertHistory(JSON.parse(raw));
     } catch (err) {
       // A corrupt or version-bumped entry is a cache miss, not an outage. Drop
       // it so the next request does not pay to rediscover the same problem.
@@ -273,11 +273,14 @@ function assemble(
     user: {
       login: identity.user.login,
       createdAt: identity.user.createdAt,
-      // The calendar and review counts arrive with the year windows, which
-      // tile the whole account; this slot exists to satisfy the shape.
+      // The calendar, review counts and repository rows all arrive with the
+      // year windows, which tile the whole account; this slot exists to satisfy
+      // the shape. Empty here means the repo mix is computed from the years
+      // alone, which is where every row lives in production.
       contributionsCollection: {
         totalPullRequestReviewContributions: 0,
         contributionCalendar: { weeks: [] },
+        commitContributionsByRepository: [],
       },
       mergedPRs: counts.user.mergedPRs,
       openPRs: counts.user.openPRs,

@@ -9,7 +9,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { render } from "../src/render.js";
 import { byteLength } from "../src/svg.js";
-import { assertHistoryV1 } from "../src/validate.js";
+import { assertHistory } from "../src/validate.js";
 import type { NormalizedHistory, RenderOptions, Scale } from "../src/types.js";
 
 const CAPS: Record<Scale, number> = {
@@ -25,7 +25,7 @@ const names = readdirSync(fixturesDir)
   .map((f) => f.replace(/\.json$/, ""));
 
 function load(name: string): NormalizedHistory {
-  return assertHistoryV1(
+  return assertHistory(
     JSON.parse(readFileSync(resolve(fixturesDir, `${name}.json`), "utf8")),
   );
 }

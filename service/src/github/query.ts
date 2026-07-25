@@ -12,6 +12,26 @@
  */
 
 /**
+ * The repo mix (NormalizedHistory v2, D-042).
+ *
+ * A `contributionsCollection` sub-selection, so it rides on windows already
+ * being fetched: GraphQL point cost is set by node count, and 100 repository
+ * rows on a query already paying for 365 calendar days is close to free.
+ *
+ * `maxRepositories` is the schema's own ceiling. An account committing to more
+ * than 100 repositories inside one account year loses the tail, which moves
+ * `breadth` and `hhi` slightly for a handful of the most scattered accounts on
+ * the platform - acceptable, and the alternative is pagination per year.
+ *
+ * Nothing here is stored: the normalizer reduces it to five numbers and one repo
+ * name (SPEC-ENGINE §2). Fetched per window, discarded on the way through.
+ */
+const REPO_MIX_BRANCH = `commitContributionsByRepository(maxRepositories: 100) {
+        repository { nameWithOwner isFork createdAt owner { login } }
+        contributions { totalCount }
+      }`;
+
+/**
  * Phase one of a cold fetch: the only thing the year windows depend on.
  *
  * 115 ms measured, against ~4 s for the whole profile document. Splitting it
@@ -87,6 +107,7 @@ export const PROFILE_QUERY = `query Profile($login: String!) {
       contributionCalendar {
         weeks { contributionDays { date contributionCount } }
       }
+      ${REPO_MIX_BRANCH}
     }
     mergedPRs: pullRequests(states: MERGED, last: 10, orderBy: {field: UPDATED_AT, direction: ASC}) {
       totalCount
@@ -120,6 +141,7 @@ export const YEAR_QUERY = `query Year($login: String!, $from: DateTime!, $to: Da
       contributionCalendar {
         weeks { contributionDays { date contributionCount } }
       }
+      ${REPO_MIX_BRANCH}
     }
   }
   rateLimit { cost limit remaining resetAt }

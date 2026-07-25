@@ -1,5 +1,5 @@
 {
-  "v": 1,
+  "v": 2,
   "login": "streak-broken",
   "fetchedAt": "2026-07-15",
   "createdAt": "2023-07-16",
@@ -674,5 +674,16 @@
       "name": "Ruby",
       "share": 0.66
     }
-  ]
+  ],
+  "repoMix": {
+    "hhi": 0.44,
+    "ownShare": 0.7,
+    "breadth": 6,
+    "orgs": 2,
+    "anchor": {
+      "nameWithOwner": "streak-broken/daily-ledger",
+      "years": 3,
+      "share": 0.6
+    }
+  }
 }

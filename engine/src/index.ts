@@ -22,6 +22,8 @@ export type {
   PotTier,
   PRStub,
   RenderOptions,
+  RepoAnchor,
+  RepoMix,
   Scale,
   Season,
   SeasonalEvent,
@@ -36,7 +38,7 @@ export type {
 
 export { BIOMES, SCALES, THEME_NAMES } from "./types.js";
 
-export { assertHistoryV1, KodamaSchemaError } from "./validate.js";
+export { assertHistory, KodamaSchemaError } from "./validate.js";
 
 export {
   addDays,

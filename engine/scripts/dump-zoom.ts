@@ -10,7 +10,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { render } from "../src/render.js";
-import { assertHistoryV1 } from "../src/validate.js";
+import { assertHistory } from "../src/validate.js";
 import type { RenderOptions } from "../src/types.js";
 
 const fixturesDir = resolve(import.meta.dirname, "../fixtures");
@@ -20,7 +20,7 @@ mkdirSync(outDir, { recursive: true });
 const name = process.argv[2] ?? "whale";
 const date = process.argv[3] ?? "2026-07-15";
 
-const history = assertHistoryV1(
+const history = assertHistory(
   JSON.parse(readFileSync(resolve(fixturesDir, `${name}.json`), "utf8")),
 );
 

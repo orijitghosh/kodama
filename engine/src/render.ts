@@ -14,7 +14,7 @@ import type { Species } from "./species.js";
 import { el, escapeText, group, rect, svgDocument, text } from "./svg.js";
 import { paletteStyles, slot, themeByName, tintRotation } from "./themes.js";
 import type { NormalizedHistory, RenderOptions, Scale, Theme, TreeFacts } from "./types.js";
-import { assertHistoryV1 } from "./validate.js";
+import { assertHistory } from "./validate.js";
 
 /** Canvas dimensions per scale (TASTE §4). */
 export const SCALE_SIZES: Record<Scale, { width: number; height: number }> = {
@@ -320,7 +320,7 @@ export function render(
   date: string,
   opts: RenderOptions,
 ): string {
-  const validated = assertHistoryV1(history);
+  const validated = assertHistory(history);
   if (!isSupportedBiome(opts.biome)) {
     throw new Error(`unsupported biome: ${escapeText(String(opts.biome))}`);
   }

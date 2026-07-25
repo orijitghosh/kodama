@@ -1,5 +1,5 @@
 {
-  "v": 1,
+  "v": 2,
   "login": "maintainer",
   "fetchedAt": "2026-07-15",
   "createdAt": "2019-03-19",
@@ -1606,5 +1606,16 @@
       "name": "Makefile",
       "share": 0.08
     }
-  ]
+  ],
+  "repoMix": {
+    "hhi": 0.09,
+    "ownShare": 0.35,
+    "breadth": 34,
+    "orgs": 6,
+    "anchor": {
+      "nameWithOwner": "maintainer/gopls-helpers",
+      "years": 7,
+      "share": 0.22
+    }
+  }
 }

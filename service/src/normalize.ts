@@ -1,5 +1,5 @@
 /**
- * GraphQL responses → NormalizedHistory v1 (SPEC-ENGINE §2, SPEC-SERVICE §3).
+ * GraphQL responses → NormalizedHistory v2 (SPEC-ENGINE §2, SPEC-SERVICE §3).
  *
  * The only place anti-gaming normalization happens (SPEC-ENGINE §3.1): the
  * engine renders whatever it is handed, so a day capped here stays capped.
@@ -8,8 +8,14 @@
  * what makes it testable against recorded responses.
  */
 
-import { addDays, assertHistoryV1, isoWeekOf, isValidDate } from "@kodama/engine";
-import type { LangShare, NormalizedHistory, PRStub, WeekCell } from "@kodama/engine";
+import {
+  addDays,
+  assertHistory,
+  isoWeekOf,
+  isValidDate,
+  wholeYearsBetween,
+} from "@kodama/engine";
+import type { LangShare, NormalizedHistory, PRStub, RepoMix, WeekCell } from "@kodama/engine";
 
 import { profileResponseSchema, yearResponseSchema } from "./github/shape.js";
 import type { ProfileResponse, YearResponse } from "./github/shape.js";
@@ -187,6 +193,200 @@ function toLanguages(profile: ProfileResponse): LangShare[] {
     .map(([name, size]): LangShare => ({ name, share: Math.floor((size / total) * 1e4) / 1e4 }));
 }
 
+// ---------------------------------------------------------------------------
+// Repo mix (v2). The first metric in the project that is cheap to fake, so the
+// filter below is load-bearing rather than hygiene (PROPOSAL-VARIETALS §7.4).
+// ---------------------------------------------------------------------------
+
+/**
+ * Commits a repository needs before it counts toward the mix at all.
+ *
+ * Fifty repositories with one commit each buys a broom-style silhouette
+ * otherwise, and that is an afternoon's work with a shell loop. Five is low
+ * enough that a genuine weekend contribution to someone else's project still
+ * counts.
+ */
+export const REPO_MIN_COMMITS = 5;
+
+/**
+ * The spread test, and the one place this filter is weaker than §7.4 asked for.
+ *
+ * The proposal wants "≥ 5 commits across ≥ 2 distinct active weeks". Weekly
+ * resolution per repository does not exist at any price this project can pay:
+ * `commitContributionsByRepository` reports one total per repository per window,
+ * and getting dates would mean fetching every commit contribution node - 100
+ * repos × 100 nodes per account year, which the PRD's cost model does not
+ * survive.
+ *
+ * So spread is tested at the resolution the data has: a repository qualifies if
+ * its commits appear in **two or more account-year windows**, or if a single
+ * window holds real volume. Both are strictly harder to fake than one commit
+ * each in fifty repositories, which was the attack. Both numbers are guesses and
+ * belong in the calibration pass (C.5) with the ladder's thresholds.
+ */
+export const REPO_SUSTAINED_WINDOWS = 2;
+export const REPO_SUSTAINED_COMMITS = 20;
+
+interface RepoTally {
+  nameWithOwner: string;
+  isFork: boolean;
+  /** "YYYY-MM-DD". */
+  createdAt: string;
+  ownerLogin: string;
+  commits: number;
+  /** How many windows this repository appeared in with any commits. */
+  windows: number;
+  /** Whether it took commits in the most recent window that had any. */
+  active: boolean;
+}
+
+/** One `contributionsCollection`, whichever query it arrived on. */
+type Collection = ProfileResponse["user"]["contributionsCollection"];
+
+/**
+ * The newest day with activity in a window, or null for an empty one.
+ *
+ * Which window is "most recent" has to come from the dates inside it, not from
+ * its position in the array: this function's contract says year responses may
+ * arrive in any order, and quietly making `anchor` depend on that order would be
+ * a bug that only ever shows up as one account's tree being subtly wrong.
+ */
+function latestActiveDay(collection: Collection): string | null {
+  let latest: string | null = null;
+  for (const week of collection.contributionCalendar.weeks) {
+    for (const day of week.contributionDays) {
+      if (day.contributionCount > 0 && (latest === null || day.date > latest)) latest = day.date;
+    }
+  }
+  return latest;
+}
+
+/** Every repository row across every window, summed by repository. */
+function tallyRepos(collections: readonly Collection[]): Map<string, RepoTally> {
+  const repos = new Map<string, RepoTally>();
+
+  for (const collection of collections) {
+    for (const row of collection.commitContributionsByRepository) {
+      const count = row.contributions.totalCount;
+      if (count === 0) continue;
+
+      const key = row.repository.nameWithOwner;
+      const existing = repos.get(key);
+      if (existing === undefined) {
+        repos.set(key, {
+          nameWithOwner: key,
+          isFork: row.repository.isFork,
+          createdAt: toCivilDate(row.repository.createdAt),
+          ownerLogin: row.repository.owner.login,
+          commits: count,
+          windows: 1,
+          active: false,
+        });
+        continue;
+      }
+      existing.commits += count;
+      existing.windows += 1;
+    }
+  }
+
+  // "Still receiving commits" = present in the window that reaches furthest
+  // forward in time. A second pass, because that window is only known once all
+  // of them have been seen.
+  let newest: Collection | null = null;
+  let newestDay: string | null = null;
+  for (const collection of collections) {
+    const day = latestActiveDay(collection);
+    if (day !== null && (newestDay === null || day > newestDay)) {
+      newestDay = day;
+      newest = collection;
+    }
+  }
+  if (newest !== null) {
+    for (const row of newest.commitContributionsByRepository) {
+      if (row.contributions.totalCount === 0) continue;
+      const tally = repos.get(row.repository.nameWithOwner);
+      if (tally !== undefined) tally.active = true;
+    }
+  }
+
+  return repos;
+}
+
+function qualifies(repo: RepoTally): boolean {
+  // A fork's history is somebody else's work by default, and counting forks
+  // would make "click fork fifty times" the same attack in a different shape.
+  if (repo.isFork) return false;
+  if (repo.commits < REPO_MIN_COMMITS) return false;
+  return repo.windows >= REPO_SUSTAINED_WINDOWS || repo.commits >= REPO_SUSTAINED_COMMITS;
+}
+
+/** Rounded to four places, floored, so the guard's 0..1 range cannot lose to float drift. */
+function toShare(part: number, whole: number): number {
+  if (whole <= 0) return 0;
+  return Math.min(1, Math.floor((part / whole) * 1e4) / 1e4);
+}
+
+/**
+ * Five numbers and at most one repository name, from up to a hundred rows per
+ * account year. Everything else is dropped here and never stored.
+ */
+function toRepoMix(
+  collections: readonly Collection[],
+  login: string,
+  fetchedAt: string,
+): RepoMix {
+  const qualifying = [...tallyRepos(collections).values()]
+    .filter(qualifies)
+    // Ties broken by name so the mix is a pure function of the response set and
+    // not of Map insertion order.
+    .sort((a, b) => b.commits - a.commits || (a.nameWithOwner < b.nameWithOwner ? -1 : 1));
+
+  if (qualifying.length === 0) {
+    return { hhi: 0, ownShare: 0, breadth: 0, orgs: 0, anchor: null };
+  }
+
+  const total = qualifying.reduce((sum, repo) => sum + repo.commits, 0);
+  const owned = (repo: RepoTally): boolean =>
+    repo.ownerLogin.toLowerCase() === login.toLowerCase();
+
+  let hhi = 0;
+  let ownCommits = 0;
+  const owners = new Set<string>();
+  for (const repo of qualifying) {
+    const share = repo.commits / total;
+    hhi += share * share;
+    if (owned(repo)) ownCommits += repo.commits;
+    else owners.add(repo.ownerLogin.toLowerCase());
+  }
+
+  // The stone is the longest-lived owned repository still taking commits. Oldest
+  // wins; commit count breaks a tie, then the name, so the choice is stable.
+  const anchorRepo =
+    qualifying
+      .filter((repo) => owned(repo) && repo.active)
+      .sort(
+        (a, b) =>
+          (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0) ||
+          b.commits - a.commits ||
+          (a.nameWithOwner < b.nameWithOwner ? -1 : 1),
+      )[0] ?? null;
+
+  return {
+    hhi: toShare(hhi, 1),
+    ownShare: toShare(ownCommits, total),
+    breadth: qualifying.length,
+    orgs: owners.size,
+    anchor:
+      anchorRepo === null
+        ? null
+        : {
+            nameWithOwner: anchorRepo.nameWithOwner,
+            years: Math.max(0, wholeYearsBetween(anchorRepo.createdAt, fetchedAt)),
+            share: toShare(anchorRepo.commits, total),
+          },
+  };
+}
+
 function starsOf(profile: ProfileResponse): number {
   return (profile.user.repositories.nodes ?? []).reduce(
     (sum, repo) => sum + (repo?.stargazerCount ?? 0),
@@ -228,8 +428,17 @@ export function normalize(input: NormalizeInput): NormalizedHistory {
           0,
         );
 
+  // The profile's own collection first, then the year windows. In production the
+  // profile slot is an empty stub and the years carry everything; against a
+  // recorded single-document response it is the other way round. `toRepoMix`
+  // reads recency from the calendar rather than from this order.
+  const collections = [
+    profile.user.contributionsCollection,
+    ...years.map((year) => year.user.contributionsCollection),
+  ];
+
   const history: NormalizedHistory = {
-    v: 1,
+    v: 2,
     login: profile.user.login,
     fetchedAt: input.fetchedAt,
     createdAt,
@@ -246,8 +455,9 @@ export function normalize(input: NormalizeInput): NormalizedHistory {
     streak: computeStreaks(days, input.fetchedAt, createdAt),
     recentPRs: toRecentPRs(profile),
     languages: toLanguages(profile),
+    repoMix: toRepoMix(collections, profile.user.login, input.fetchedAt),
   };
 
-  assertHistoryV1(history);
+  assertHistory(history);
   return history;
 }

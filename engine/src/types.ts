@@ -9,7 +9,14 @@ import type { SpeciesName } from "./species.js";
  */
 
 // ---------------------------------------------------------------------------
-// NormalizedHistory v1 - frozen once M4 ships
+// NormalizedHistory v2
+//
+// v1 was frozen when M4 shipped. v2 adds `repoMix` and nothing else: form
+// (D-042) needs to know how an account's commits are distributed across repos,
+// and no combination of v1 fields can answer that. An engine that reads v2
+// refuses a v1 payload outright rather than filling the gap with zeros - a
+// guessed repo mix is a false claim about somebody's work, and the cost of the
+// alternative is one cold fetch per account, once (SPEC-ENGINE §2).
 // ---------------------------------------------------------------------------
 
 /** One ISO week with activity. Weeks with zero activity are omitted. */
@@ -54,8 +61,47 @@ export interface HistoryStreak {
   lastActiveDate: string;
 }
 
+/**
+ * The one repository the schema is allowed to name.
+ *
+ * `repoMix` is deliberately five numbers and not a repo list - a hundred rows
+ * per year would not fit the ~2 KB history budget, and the badge has no business
+ * carrying an inventory of what someone works on. The exception is the single
+ * longest-lived owned repo still receiving commits, because the root-over-rock
+ * form *is* that project and its receipt has to say which one (PROPOSAL-VARIETALS
+ * §3, rung 6). One row, ~50 bytes, and it is the only repo identity stored.
+ */
+export interface RepoAnchor {
+  /** "owner/name". */
+  nameWithOwner: string;
+  /** Whole years from the repo's creation to the fetch date. */
+  years: number;
+  /** Its share of qualifying commits, 0..1. */
+  share: number;
+}
+
+/**
+ * How an account's commits are spread across repositories (v2).
+ *
+ * Every number here is computed over *qualifying* repos only - see the
+ * anti-gaming filter in the service's normalizer. This is the first metric in
+ * the project that is cheap to fake, and the filter is the whole defence.
+ */
+export interface RepoMix {
+  /** Herfindahl index over commit shares: 1 = one repo, → 0 = scattered. */
+  hhi: number;
+  /** Fraction of qualifying commits landing in repos the account owns, 0..1. */
+  ownShare: number;
+  /** Distinct qualifying repositories. */
+  breadth: number;
+  /** Distinct owners other than the account itself, among qualifying repos. */
+  orgs: number;
+  /** Null when nothing qualifies - a ghost, or an account of drive-by commits. */
+  anchor: RepoAnchor | null;
+}
+
 export interface NormalizedHistory {
-  v: 1;
+  v: 2;
   login: string;
   /** "YYYY-MM-DD". */
   fetchedAt: string;
@@ -69,6 +115,8 @@ export interface NormalizedHistory {
   recentPRs: PRStub[];
   /** Top 5 by repo-weighted bytes. */
   languages: LangShare[];
+  /** New in v2: the repo-mix summary form is chosen from (D-042). */
+  repoMix: RepoMix;
 }
 
 // ---------------------------------------------------------------------------

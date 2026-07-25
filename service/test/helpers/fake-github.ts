@@ -6,8 +6,8 @@
  * reaching into either class.
  */
 
-import { calendar } from "./responses.js";
-import type { DayInput } from "./responses.js";
+import { calendar, repoRows } from "./responses.js";
+import type { DayInput, RepoInput } from "./responses.js";
 
 export interface FakeAccount {
   login: string;
@@ -20,6 +20,11 @@ export interface FakeAccount {
   answers?: number;
   stars?: number[];
   languages?: { name: string; size: number }[];
+  /**
+   * Repository rows returned on every year window that has any activity, so an
+   * account described here has a repo mix without every test restating one.
+   */
+  repos?: RepoInput[];
 }
 
 export interface FakeCall {
@@ -158,6 +163,11 @@ function payloadFor(
           contributionsCollection: {
             totalPullRequestReviewContributions: account.reviewsPerYear ?? 0,
             contributionCalendar: calendar(days),
+            // A window with no commits reports no repositories, which is what
+            // GitHub does and what makes the "still active" test meaningful.
+            commitContributionsByRepository: repoRows(
+              days.length === 0 ? [] : (account.repos ?? []),
+            ),
           },
         },
       };

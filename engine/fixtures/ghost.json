@@ -1,5 +1,5 @@
 {
-  "v": 1,
+  "v": 2,
   "login": "ghost",
   "fetchedAt": "2026-07-15",
   "createdAt": "2025-11-02",
@@ -19,5 +19,12 @@
     "lastActiveDate": "2025-11-02"
   },
   "recentPRs": [],
-  "languages": []
+  "languages": [],
+  "repoMix": {
+    "hhi": 0,
+    "ownShare": 0,
+    "breadth": 0,
+    "orgs": 0,
+    "anchor": null
+  }
 }

@@ -1,5 +1,5 @@
 {
-  "v": 1,
+  "v": 2,
   "login": "dormant",
   "fetchedAt": "2026-07-15",
   "createdAt": "2021-07-16",
@@ -1014,5 +1014,16 @@
       "name": "HTML",
       "share": 0.2
     }
-  ]
+  ],
+  "repoMix": {
+    "hhi": 0.5,
+    "ownShare": 0.8,
+    "breadth": 4,
+    "orgs": 1,
+    "anchor": {
+      "nameWithOwner": "dormant/phoenix-shop",
+      "years": 5,
+      "share": 0.68
+    }
+  }
 }

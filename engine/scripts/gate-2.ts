@@ -27,7 +27,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { render } from "../src/render.js";
 import { PALETTE_SLOTS, paletteForSeason, themeByName } from "../src/themes.js";
-import { assertHistoryV1 } from "../src/validate.js";
+import { assertHistory } from "../src/validate.js";
 import type { NormalizedHistory, Palette, RenderOptions, Season, ThemeName } from "../src/types.js";
 
 const fixturesDir = resolve(import.meta.dirname, "../fixtures");
@@ -35,7 +35,7 @@ const outDir = resolve(import.meta.dirname, "../../dev/taste/gate-2");
 mkdirSync(outDir, { recursive: true });
 
 function load(name: string): NormalizedHistory {
-  return assertHistoryV1(JSON.parse(readFileSync(resolve(fixturesDir, `${name}.json`), "utf8")));
+  return assertHistory(JSON.parse(readFileSync(resolve(fixturesDir, `${name}.json`), "utf8")));
 }
 
 const GALLERY = ["ghost", "newcomer", "grinder", "maintainer", "whale", "veteran"];
