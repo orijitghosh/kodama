@@ -128,19 +128,57 @@ No corpus. Give the run some accounts, one of three ways:
 // GitHub
 // ---------------------------------------------------------------------------
 
-function loadTokens(): string[] {
-  const path = join(PKG_DIR, ".env.local");
-  if (!existsSync(path)) throw new Error("service/.env.local not found (needs KODAMA_PATS)");
-  const line = /^KODAMA_PATS=(.*)$/m.exec(readFileSync(path, "utf8"));
-  if (line === null) throw new Error("service/.env.local has no KODAMA_PATS line");
-  const tokens = line[1]!
+function splitTokens(raw: string): string[] {
+  return raw
     .trim()
     .replace(/^["']|["']$/g, "")
     .split(",")
     .map((token) => token.trim())
     .filter((token) => token.length > 0);
-  if (tokens.length === 0) throw new Error("KODAMA_PATS is empty");
-  return tokens;
+}
+
+const NO_TOKEN = `
+No GitHub token. Any one of these works, and none of them needs a scope - the
+whole corpus is public contribution data:
+
+  $env:KODAMA_PATS = "ghp_..."      # this shell only, nothing written to disk
+  $env:GITHUB_TOKEN = "ghp_..."     # honoured too, single token
+
+  service/.env.local                # KODAMA_PATS=ghp_a,ghp_b  (gitignored)
+
+Or skip the network entirely with --dry-run, which runs the ladder over the ten
+engine fixtures.
+`.trim();
+
+/**
+ * Tokens, from the environment first and the dotfile second.
+ *
+ * The spike scripts read `service/.env.local` and only that, which is what the
+ * first run of this script tripped over: that file is a convenience one machine
+ * happened to have, not a convention. An env var is the better default here
+ * anyway - a calibration run is occasional, and a token set for one shell leaves
+ * nothing behind on disk.
+ *
+ * Token values are never printed, never written to the report, and never put in
+ * the cache. The only thing said out loud is how many were found.
+ */
+function loadTokens(): string[] {
+  const fromEnv = process.env["KODAMA_PATS"] ?? process.env["GITHUB_TOKEN"] ?? process.env["GH_TOKEN"];
+  if (fromEnv !== undefined && fromEnv.trim().length > 0) {
+    const tokens = splitTokens(fromEnv);
+    if (tokens.length > 0) return tokens;
+  }
+
+  const path = join(PKG_DIR, ".env.local");
+  if (existsSync(path)) {
+    const line = /^KODAMA_PATS=(.*)$/m.exec(readFileSync(path, "utf8"));
+    if (line !== null) {
+      const tokens = splitTokens(line[1]!);
+      if (tokens.length > 0) return tokens;
+    }
+  }
+
+  throw new Error(NO_TOKEN);
 }
 
 interface RateLimit {
@@ -615,4 +653,11 @@ async function main(): Promise<void> {
   if (text.includes("**FAIL**")) process.exitCode = 2;
 }
 
-await main();
+// A missing token or an unreadable corpus file is an instruction to the operator,
+// not a defect - so it prints as one sentence, without a stack trace.
+try {
+  await main();
+} catch (err) {
+  console.error(`\n${err instanceof Error ? err.message : String(err)}`);
+  process.exitCode = 1;
+}
