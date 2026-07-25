@@ -35,7 +35,7 @@
  * on the engine, and the reverse would be a cycle for no gain (D-043).
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -77,10 +77,18 @@ interface Args {
   discover: number;
   noCache: boolean;
   dryRun: boolean;
+  fromCache: boolean;
 }
 
 function parseArgs(argv: string[]): Args {
-  const args: Args = { logins: [], corpus: null, discover: 0, noCache: false, dryRun: false };
+  const args: Args = {
+    logins: [],
+    corpus: null,
+    discover: 0,
+    noCache: false,
+    dryRun: false,
+    fromCache: false,
+  };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]!;
     if (arg === "--dry-run") {
@@ -93,6 +101,8 @@ function parseArgs(argv: string[]): Args {
       i += 1;
     } else if (arg === "--no-cache") {
       args.noCache = true;
+    } else if (arg === "--from-cache") {
+      args.fromCache = true;
     } else if (arg === "--") {
       // pnpm forwards the separator itself on some versions; ignore it rather
       // than making the documented invocation fail.
@@ -122,6 +132,10 @@ No corpus. Give the run some accounts, one of three ways:
                     FAIL on corpus size - but it is how to see what a real run
                     will print, and it needs no token.
   --no-cache        refetch instead of reusing dev/calibration/cache.
+  --from-cache      no network: rebuild the report from every history already in
+                    dev/calibration/cache, whatever day it was fetched. This is
+                    how thresholds get moved - edit FORM_THRESHOLDS, replay, read
+                    the histogram, repeat, without spending a point.
 `.trim();
 
 // ---------------------------------------------------------------------------
@@ -242,43 +256,79 @@ query($q: String!, $after: String) {
 }`;
 
 /**
+ * Creation-era strata, sampled round-robin.
+ *
+ * The first version of this ran four popularity-ordered queries back to back and
+ * exhausted the first before touching the second, which produced a corpus whose
+ * *tenth* percentile account age was eight years - a sample of famous veterans
+ * with no young accounts in it at all. Half the ladder is about age and decline,
+ * so that corpus could not have calibrated the thresholds it was fetched to test.
+ *
+ * Stratifying by creation date and interleaving the strata fixes both halves of
+ * that: every era is represented, and an interrupted run still holds a spread
+ * rather than the first stratum only.
+ */
+const STRATA = [
+  "repos:>2 created:<2012-01-01",
+  "repos:>2 created:2012-01-01..2015-12-31",
+  "repos:>2 created:2016-01-01..2018-12-31",
+  "repos:>2 created:2019-01-01..2021-12-31",
+  "repos:>2 created:2022-01-01..2023-12-31",
+  "repos:>1 created:>2024-01-01",
+] as const;
+
+/**
  * A corpus off GitHub's own search, so a run needs no hand-curated list.
  *
- * Two honest caveats, both repeated in the report because a histogram from a
- * biased sample is worse than no histogram if the bias is forgotten. Search
- * ranks by popularity, so this over-samples visible accounts; and the query
- * asks for accounts with some repositories and some followers, so it
- * under-samples the quiet majority that the moss-ball and windswept rungs are
- * about. Treat `--discover` as the fast pass and a curated corpus as the real one.
+ * The caveat that remains after stratification, and it is repeated in the report
+ * because a histogram from a biased sample is worse than no histogram if the bias
+ * is forgotten: search ranks by popularity, and `repos:>2` excludes the account
+ * that has never pushed anything. So this still over-samples the visible and
+ * under-samples the quiet. Treat `--discover` as the fast pass and a curated
+ * corpus as the real one.
  */
 async function discover(token: string, want: number): Promise<string[]> {
-  const queries = [
-    "repos:>3 followers:>20 sort:followers",
-    "repos:>10 followers:>2",
-    "repos:>1 created:<2016-01-01",
-    "repos:>20 followers:>200",
-  ];
-  const logins = new Set<string>();
+  const perStratum = Math.ceil(want / STRATA.length);
+  const buckets: string[][] = [];
 
-  for (const q of queries) {
-    let after: string | null = null;
-    while (logins.size < want) {
-      const result = await gql(token, SEARCH_QUERY, { q, after });
-      if (result.errors !== undefined) {
-        console.warn(`  search "${q}" failed: ${result.errors.map((e) => e.message).join("; ")}`);
-        break;
-      }
-      const search = result.data?.["search"] as
-        | { pageInfo: { hasNextPage: boolean; endCursor: string | null }; nodes: { login?: string }[] }
-        | undefined;
-      if (search === undefined) break;
-      for (const node of search.nodes) {
-        if (node.login !== undefined) logins.add(node.login);
-      }
-      if (!search.pageInfo.hasNextPage) break;
-      after = search.pageInfo.endCursor;
+  for (const q of STRATA) {
+    buckets.push(await sample(token, q, perStratum));
+  }
+
+  // Interleaved, so a run stopped early is still spread across the eras.
+  const logins: string[] = [];
+  for (let i = 0; logins.length < want; i += 1) {
+    let added = false;
+    for (const bucket of buckets) {
+      const login = bucket[i];
+      if (login === undefined) continue;
+      if (!logins.includes(login)) logins.push(login);
+      added = true;
+      if (logins.length >= want) break;
     }
-    if (logins.size >= want) break;
+    if (!added) break;
+  }
+  return logins;
+}
+
+async function sample(token: string, q: string, want: number): Promise<string[]> {
+  const logins = new Set<string>();
+  let after: string | null = null;
+  while (logins.size < want) {
+    const result = await gql(token, SEARCH_QUERY, { q, after });
+    if (result.errors !== undefined) {
+      console.warn(`  search "${q}" failed: ${result.errors.map((e) => e.message).join("; ")}`);
+      break;
+    }
+    const search = result.data?.["search"] as
+      | { pageInfo: { hasNextPage: boolean; endCursor: string | null }; nodes: { login?: string }[] }
+      | undefined;
+    if (search === undefined) break;
+    for (const node of search.nodes) {
+      if (node.login !== undefined) logins.add(node.login);
+    }
+    if (!search.pageInfo.hasNextPage) break;
+    after = search.pageInfo.endCursor;
   }
   return [...logins].slice(0, want);
 }
@@ -439,6 +489,33 @@ function histogram(rows: Row[]): Map<FormName, number> {
   return counts;
 }
 
+/**
+ * The style an account would get with the maturity floor removed.
+ *
+ * The floor is the one threshold a histogram cannot argue about on its own: every
+ * account under it lands on `kokedama` and its signals never reach a rung, so the
+ * report would say "36% moss balls" and stop. This walks the ladder directly for
+ * those accounts, which is what makes the counterfactual below possible - do the
+ * level-4s distribute like everybody else, or do they pile onto one rung because
+ * there genuinely is not enough history to read?
+ */
+function formIgnoringFloor(row: Row): FormName {
+  for (const rung of FORM_LADDER) {
+    if (rung.when({ facts: row.facts, repoMix: row.history.repoMix })) return rung.name;
+  }
+  return DEFAULT_FORM;
+}
+
+/** Distribution of a form-name assignment, as shares of `rows`. */
+function shares(rows: Row[], formOf: (row: Row) => FormName): Map<FormName, number> {
+  const counts = new Map<FormName, number>();
+  for (const row of rows) {
+    const form = formOf(row);
+    counts.set(form, (counts.get(form) ?? 0) + 1);
+  }
+  return counts;
+}
+
 function report(rows: Row[], corpusNote: string): string {
   const out: string[] = [];
   const write = (line = ""): void => {
@@ -494,6 +571,24 @@ function report(rows: Row[], corpusNote: string): string {
       `corpus too small to conclude anything: ${String(denom)} styled accounts, want >= 40`,
     );
   }
+
+  // A lopsided corpus is worse than a small one, because it looks like a result.
+  // Half the ladder reads age or decline, so a sample with no young accounts in it
+  // cannot calibrate those rungs whatever its size.
+  const ages = rows.map((row) => row.facts.accountYears).sort((a, b) => a - b);
+  const youngShare = ages.filter((years) => years < 3).length / ages.length;
+  if (quantile(ages, 0.1) > 4) {
+    failures.push(
+      `corpus skews old: p10 account age is ${round(quantile(ages, 0.1))} years, so nine in ` +
+        "ten accounts are veterans - the age and decline rungs cannot be calibrated on it",
+    );
+  }
+  if (youngShare < 0.1) {
+    failures.push(
+      `only ${(youngShare * 100).toFixed(1)}% of the corpus is under three years old; ` +
+        "the maturity floor and the seedling display are unmeasurable at that mix",
+    );
+  }
   for (const [form, count] of counts) {
     if (form === "kokedama") continue;
     const share = denom === 0 ? 0 : count / denom;
@@ -526,6 +621,72 @@ function report(rows: Row[], corpusNote: string): string {
       "floor alongside the newcomer. Decide the floor here, with the numbers below.",
   );
   write();
+
+  // -- where the floor should sit ----------------------------------------
+  write("## Where the maturity floor should sit");
+  write();
+  write("The one threshold the histogram above cannot argue about, because every account");
+  write("under it is a moss ball by construction. Two questions, and the second is the one");
+  write("that decides it: how many accounts does the floor exclude, and do the excluded");
+  write("ones have anything legible to say?");
+  write();
+  write("| maturity | accounts | share of corpus | cumulative if floor were here |");
+  write("|---:|---:|---:|---:|");
+  const byMaturity = new Map<number, number>();
+  for (const row of rows) {
+    const m = row.facts.maturity;
+    byMaturity.set(m, (byMaturity.get(m) ?? 0) + 1);
+  }
+  const levels = [...byMaturity.keys()].sort((a, b) => a - b);
+  for (const level of levels) {
+    const count = byMaturity.get(level) ?? 0;
+    const styledHere = rows.filter((row) => row.facts.maturity >= level).length;
+    write(
+      `| ${String(level)} | ${String(count)} | ${((count / rows.length) * 100).toFixed(1)}% | ` +
+        `${((styledHere / rows.length) * 100).toFixed(1)}% styled |`,
+    );
+  }
+  write();
+
+  const under = rows.filter((row) => row.facts.maturity < FORM_MIN_MATURITY);
+  if (under.length > 0) {
+    write(
+      `The **${String(under.length)}** accounts currently under the floor would distribute ` +
+        "like this if the ladder were allowed to read them:",
+    );
+    write();
+    write("| form | count | share of the excluded |");
+    write("|---|---:|---:|");
+    const counterfactual = [...shares(under, formIgnoringFloor).entries()].sort(
+      (a, b) => b[1] - a[1],
+    );
+    for (const [form, count] of counterfactual) {
+      write(`| ${form} | ${String(count)} | ${((count / under.length) * 100).toFixed(1)}% |`);
+    }
+    write();
+    write(
+      "Read it this way: a spread resembling the styled corpus means the floor is " +
+        "throwing away readable accounts and should come down. A pile onto one or two " +
+        "rungs - or onto `moyogi` - means the opposite, that there is genuinely too " +
+        "little history there and the moss ball is the honest answer.",
+    );
+    write();
+    write("| active weeks among the excluded | p10 | p50 | p90 |");
+    write("|---|---:|---:|---:|");
+    const weeks = under.map((row) => row.facts.signals.activeWeeks).sort((a, b) => a - b);
+    write(
+      `| activeWeeks | ${round(quantile(weeks, 0.1))} | ${round(quantile(weeks, 0.5))} | ` +
+        `${round(quantile(weeks, 0.9))} |`,
+    );
+    write();
+    write(
+      "`activeWeeks` is the direct measure of how much evidence exists, as opposed to " +
+        "maturity, which is volume per level. If the excluded accounts have a year or " +
+        "more of active weeks, the floor is measuring the wrong thing and should be " +
+        "expressed in `activeWeeks` instead of in levels.",
+    );
+    write();
+  }
 
   // -- signal distributions ----------------------------------------------
   write("## Signal distributions");
@@ -578,8 +739,52 @@ function fixtureRows(date: string): Row[] {
   });
 }
 
+/**
+ * Every history sitting in the cache, as rows. No network, no token.
+ *
+ * This is the loop threshold work actually runs in: a fetch of 150 accounts costs
+ * minutes and a third of the hourly budget, and moving a threshold changes nothing
+ * about the histories - only about how they are classified. So fetch once, then
+ * replay. A half-written cache file (a run interrupted mid-write) is skipped
+ * rather than fatal, because the common reason to replay is that the fetch is
+ * still going.
+ */
+function cachedRows(date: string): Row[] {
+  if (!existsSync(CACHE_DIR)) {
+    throw new Error(
+      "no cache at dev/calibration/cache - run a fetch first, or use --dry-run",
+    );
+  }
+  const rows: Row[] = [];
+  let skipped = 0;
+  for (const file of readdirSync(CACHE_DIR)) {
+    if (!file.endsWith(".json")) continue;
+    try {
+      const history = JSON.parse(readFileSync(join(CACHE_DIR, file), "utf8")) as NormalizedHistory;
+      const facts = treeFacts(history, date);
+      rows.push({ form: selectForm({ facts, repoMix: history.repoMix }), facts, history });
+    } catch {
+      skipped += 1;
+    }
+  }
+  if (skipped > 0) console.warn(`${String(skipped)} unreadable cache file(s) skipped`);
+  return rows;
+}
+
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
+
+  if (args.fromCache) {
+    const date = today();
+    const rows = cachedRows(date);
+    const text = report(rows, "replayed from dev/calibration/cache, no network");
+    mkdirSync(OUT_DIR, { recursive: true });
+    writeFileSync(join(OUT_DIR, `replay-${date}.md`), `${text}\n`, "utf8");
+    console.log(text);
+    console.log(`written to dev/calibration/replay-${date}.md`);
+    if (text.includes("**FAIL**")) process.exitCode = 2;
+    return;
+  }
 
   if (args.dryRun) {
     const date = today();
