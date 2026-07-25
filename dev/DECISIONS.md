@@ -807,3 +807,73 @@ longer redraws daily, which is the one promise the product makes on its face.
 The parameter does not hide that (the date is on the image), but nothing stops
 it either. Accepted, because the alternative is a service that cannot answer
 "what did this look like last spring" at all.
+
+## D-040 Who may spend the budget, decided before the budget is spent
+
+Every defence built so far acts after a query is already in flight. The pool
+benches a token GitHub refused (D-029, f39f0c1), the CDN and KV make the steady
+state nearly free (D-030), serve-stale keeps a badge drawing through an outage,
+and the "come back soon" seedling makes even total failure a picture. Nothing
+decided who was *allowed* to spend the quota in the first place, and the PRD had
+asked for that twice - "per-IP cache-miss limits" in §Architecture, "per-IP miss
+caps" in §Risks. It was the last unbuilt line of the launch cost model.
+
+The hole is cheap to walk through, which is what makes it worth closing before
+anyone links a badge widely. A login that does not exist still costs a GraphQL
+query; names are free to invent; an account's budget is 5 000 points an hour and
+one token per account (D-029). So a few thousand requests for names nobody has
+registered drains the hour, and every *uncached* badge in the world degrades to
+the seedling until it resets. No malice required - a crawler walking a wordlist
+does it by accident.
+
+Two keys close it, and the split matters.
+
+**`n1:<login>`, six hours.** A negative cache for logins GitHub answered
+`NOT_FOUND` for. It is consulted only when nothing is cached: a login we hold a
+history for has existed, so a rename or a deletion must reach the stale path and
+keep drawing the tree we have, rather than being burned in as a miss. Six hours
+is short enough that someone registering the name today sees their tree the same
+afternoon.
+
+**`c1:<hash>:<hour>`, forty cold fetches.** The cap. Charged *inside* the single
+flight and *after* both caches, so three things are free by construction: a warm
+badge, a request that only waits on someone else's fetch, and a client the
+runtime gives us no way to name. Forty is sized against the honest heavy user -
+browsing the gallery and pasting a few logins costs single digits - and leaves
+room for an office behind one address while holding a single source under 1% of
+the hour.
+
+Three properties are load-bearing, and each one is a test.
+
+**It fails open.** `incr` returns 0 when the store could not answer, 0 is never a
+real count, and the guard reads it as "unknown" and allows the request. A cache
+outage must not turn into a refusal; that would convert a degraded service into a
+broken one, which is the trade the whole error-SVG table exists to refuse.
+
+**It keeps no address.** The counter is keyed by a 32-bit hash of the first
+`x-forwarded-for` hop. PRD §Privacy allows an abuse counter and nothing more, and
+a counter does not need to know who it counts. That the header is spoofable is
+accepted: the cap is against the cheap accidental drain, not against someone who
+has decided to rotate addresses. The expensive attacker is what Action mode
+(Tier 4) answers.
+
+**A refusal is still a picture.** Over the cap the image route returns 200 with
+the seedling and a `retry-after` to the top of the hour, which is the same shape
+pool exhaustion already had. The JSON route answers 503, because D-034 says a
+`fetch()` caller branches on status. And a client over its cap that has a stale
+copy gets the stale tree, not the seedling - the refusal is thrown inside the
+try, so the existing serve-stale path catches it without knowing what it was.
+
+The cost is a fourth method on a port whose smallness was itself a decision
+(D-008). A cap cannot be built from `get`/`set`/`del`: get-then-set loses every
+concurrent increment, and concurrency is the only condition a cap is for. So
+`incr(key, ttl)` joins the port, one round trip on Upstash's pipeline endpoint -
+`INCR` then `EXPIRE` - because a cap that costs two round trips on the cold path
+makes the thing it protects slower.
+
+One consequence to watch: a refused client lands in `comeBack`, which counts
+against the error-rate meter and can fire the alert. That is deliberate. The cap
+only trips when something is hammering the origin, and an operator wants to hear
+about that in the same breath as an outage - but it does mean the first alert
+after launch may be a crawler rather than a fault, and the runbook now says so
+(OPS §6.1).

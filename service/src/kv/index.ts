@@ -17,6 +17,16 @@ export interface KV {
   set(key: string, value: string, ttlSeconds: number): Promise<void>;
   /** Drop a key; absent keys are not an error. */
   del(key: string): Promise<void>;
+  /**
+   * Increment a counter, refresh its expiry, and return the new value.
+   *
+   * The fourth method exists because a rate cap cannot be built out of the other
+   * three: get-then-set loses every concurrent increment, and concurrency is the
+   * only condition a cap is for. `0` is returned when the store could not
+   * answer - never a real count, since the first increment yields 1 - and the
+   * caller must read it as "unknown" and let the request through (guard.ts).
+   */
+  incr(key: string, ttlSeconds: number): Promise<number>;
 }
 
 // ---------------------------------------------------------------------------
@@ -42,6 +52,32 @@ export const HISTORY_TTL_S = 2_592_000;
 
 /** Past years never change; only the eviction budget argues for an expiry. */
 export const YEAR_TTL_S = 2_592_000;
+
+/**
+ * A login GitHub has no account for.
+ *
+ * Without this key every request for a nonexistent name is a fresh GraphQL
+ * query, and a name that does not exist is free to invent: a few thousand of
+ * them drains an account's hourly budget and every uncached badge degrades to
+ * the "come back soon" seedling. Six hours is long enough to make the attack
+ * uneconomical and short enough that someone who registers the name today sees
+ * their tree the same afternoon.
+ */
+export const missKey = (login: string): string => `n1:${login.toLowerCase()}`;
+
+export const NOT_FOUND_TTL_S = 21_600;
+
+/**
+ * Cold fetches charged to one client in one hour (guard.ts).
+ *
+ * The client is a hash, never an address: PRD §Privacy allows an abuse counter
+ * and nothing more, and a counter does not need to know who it counts.
+ */
+export const coldKey = (clientHash: string, hourBucket: number): string =>
+  `c1:${clientHash}:${String(hourBucket)}`;
+
+/** One bucket's worth, plus slack so a counter never dies inside its own hour. */
+export const COLD_TTL_S = 7_200;
 
 /**
  * A history is fresh for the UTC day it was fetched.
@@ -94,6 +130,17 @@ export function guarded(kv: KV, health: KvHealth): KV {
         await kv.del(key);
       } catch (err) {
         note(err);
+      }
+    },
+    async incr(key, ttlSeconds) {
+      try {
+        return await kv.incr(key, ttlSeconds);
+      } catch (err) {
+        note(err);
+        // A store that cannot count must not become a store that refuses
+        // service: 0 tells the guard it does not know, and it lets the request
+        // through (kv port, `incr`).
+        return 0;
       }
     },
   };

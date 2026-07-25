@@ -15,6 +15,7 @@ import type { NormalizedHistory, RenderOptions, Scale } from "@kodama/engine";
 import { errorSvg, markStale } from "./error-svg.js";
 import type { ErrorKind } from "./error-svg.js";
 import type { Fetcher } from "./fetcher.js";
+import { ColdBudgetError, clientOf } from "./guard.js";
 import { GitHubError } from "./github/client.js";
 import { PoolExhaustedError } from "./github/pool.js";
 import { warn } from "./log.js";
@@ -68,6 +69,10 @@ export interface RouteDeps {
  * user asking for an account that does not exist or a name that cannot - the
  * service worked correctly and drew the right seedling, so it is not degradation
  * and must not drown out a real outage in the window.
+ *
+ * A client refused by the cold-fetch cap lands in `comeBack` and so does count.
+ * That is deliberate: the cap only trips when something is hammering the origin,
+ * and an operator wants to be told about that in the same breath as an outage.
  */
 const DEGRADED_STATES = new Set(["comeBack", "broken"]);
 
@@ -99,7 +104,7 @@ export async function handleTree(request: Request, deps: RouteDeps): Promise<Res
   let stale = false;
 
   try {
-    const result = await deps.fetcher.fetch(login, today);
+    const result = await deps.fetcher.fetch(login, today, clientOf(request));
     history = result.history;
     stale = result.source === "stale";
   } catch (err) {
@@ -150,16 +155,20 @@ function kindFor(err: unknown): ErrorKind {
 /**
  * How long to tell the caller to wait, when the failure named a moment.
  *
- * Only pool exhaustion knows one: it is benched until GitHub's reset. Floored at
- * a minute so the header agrees with the picture the seedling is drawing ("come
- * back soon"), capped at an hour because that is the longest window GitHub has.
+ * Two failures know one: an exhausted pool is benched until GitHub's reset, and
+ * a client over its cold-fetch allowance is held until its hour rolls (guard.ts).
+ * Floored at a minute so the header agrees with the picture the seedling is
+ * drawing ("come back soon"), capped at an hour because that is the longest
+ * window either of them spans.
  *
  * It rides on a 200, so no cache acts on it - it is for the landing page and for
  * whoever is reading headers during an incident, not for camo.
  */
 function retryAfterFor(err: unknown, nowMs: number): number | null {
-  if (!(err instanceof PoolExhaustedError)) return null;
-  const seconds = Math.ceil((err.retryAtMs - nowMs) / 1000);
+  const retryAtMs =
+    err instanceof PoolExhaustedError || err instanceof ColdBudgetError ? err.retryAtMs : null;
+  if (retryAtMs === null) return null;
+  const seconds = Math.ceil((retryAtMs - nowMs) / 1000);
   return Math.min(Math.max(seconds, 60), 3600);
 }
 

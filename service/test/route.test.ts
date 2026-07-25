@@ -11,6 +11,7 @@ import { XMLParser } from "fast-xml-parser";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Fetcher } from "../src/fetcher.js";
+import { KvColdGuard } from "../src/guard.js";
 import { GitHubClient } from "../src/github/client.js";
 import { PatPool } from "../src/github/pool.js";
 import { MemoryKV } from "../src/kv/index.js";
@@ -182,6 +183,36 @@ describe("the error table (SPEC-SERVICE §4)", () => {
     expect(response.headers.get("x-kodama-state")).toBe("comeBack");
     // Benched an hour from `benchedAt`, asked a minute in.
     expect(response.headers.get("retry-after")).toBe("3540");
+  });
+
+  it("holds a client over its cold-fetch allowance until the hour rolls", async () => {
+    const github = fakeGitHub({ accounts: [HANA] });
+    const nowMs = Date.parse("2026-07-21T12:40:00Z");
+    const kv = new MemoryKV({ now: () => nowMs });
+    const client = new GitHubClient({
+      pool: new PatPool(["ghp_hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh"]),
+      fetchImpl: github.fetchImpl,
+    });
+    const deps: RouteDeps = {
+      fetcher: new Fetcher({
+        kv,
+        client,
+        guard: new KvColdGuard({ kv, cap: 0, now: () => nowMs }),
+      }),
+      today: () => TODAY,
+      nowMs: () => nowMs,
+    };
+
+    const request = new Request("https://kodama.dev/hana.svg", {
+      headers: { "x-forwarded-for": "203.0.113.7" },
+    });
+    const response = await handleTree(request, deps);
+
+    await expectValidSvg(response);
+    expect(response.headers.get("x-kodama-state")).toBe("comeBack");
+    // 12:40 to 13:00 is twenty minutes.
+    expect(response.headers.get("retry-after")).toBe("1200");
+    expect(github.calls, "refused before any query").toHaveLength(0);
   });
 
   it("carries no retry-after when the failure knows no time", async () => {

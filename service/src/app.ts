@@ -20,6 +20,7 @@
  */
 
 import { Fetcher } from "./fetcher.js";
+import { KvColdGuard } from "./guard.js";
 import { GitHubClient } from "./github/client.js";
 import { PatPool } from "./github/pool.js";
 import { guarded, newHealth, MemoryKV } from "./kv/index.js";
@@ -76,7 +77,7 @@ export function buildContainer(env: Record<string, string | undefined> = process
   const kv: KV = guarded(upstash ?? new MemoryKV(), health);
 
   return {
-    fetcher: new Fetcher({ kv, client }),
+    fetcher: new Fetcher({ kv, client, guard: new KvColdGuard({ kv }) }),
     pool,
     client,
     health,

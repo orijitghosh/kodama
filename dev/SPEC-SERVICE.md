@@ -84,8 +84,23 @@ failure is greppable in the CDN log without parsing the body.
 requesters see the same bytes; determinism + date-granularity make the cache
 correct by construction.
 
+Before any spend, two guards stand between a request and the pool (D-040):
+
+- **`n1:<login>` (6 h)** - a login GitHub answered `NOT_FOUND` for. Consulted
+  only when no history is cached, so a rename or a deletion still reaches the
+  stale path rather than being burned in as a miss. Without it, every invented
+  name costs a query and names are free to invent.
+- **`c1:<hash>:<hour>` (2 h)** - cold fetches charged to one client in one hour,
+  capped at 40. The client is a 32-bit hash of the first `x-forwarded-for` hop,
+  never an address (PRD §Privacy). Charged inside the single flight and after
+  both caches, so a warm badge and a request that merely waits on someone else's
+  fetch are free. Over the cap the route answers `comeBack` with a `retry-after`
+  to the top of the hour; the JSON route answers 503. Both fail **open**: a store
+  that cannot count returns 0 from `incr`, and 0 lets the request through.
+
 KV is Upstash Redis via the Vercel Marketplace (chosen at 4.0, D-027) behind a
-three-method port. **One key holds a login's history:** `h1:<login>` =
+four-method port - `get`/`set`/`del`, plus the `incr` the cap needs, since
+get-then-set loses exactly the concurrent increments a cap exists to catch. **One key holds a login's history:** `h1:<login>` =
 NormalizedHistory JSON, 30 d TTL. Freshness is the entry's own `fetchedAt`
 against today, not the TTL - an entry that expired on schedule is exactly the
 one serve-stale needed, so the long retention is what makes the stale path
@@ -203,6 +218,7 @@ over → serve stale or seedling, HTTP 200 always.
 | GitHub 404 | empty pot + "user not found" |
 | API rate-limited / 5xx, KV has stale | stale tree + tiny wilt-free "cached" leaf mark |
 | API failure, no stale | seedling + "come back soon" |
+| Client over its cold-fetch cap, no stale | seedling + "come back soon" (D-040) |
 | Engine throw (bug) | seedling variant; log with history hash for repro |
 
 Failure-injection test suite (vitest + mocked fetch) covers every row and
@@ -210,8 +226,9 @@ asserts: HTTP 200, valid SVG, correct Content-Type, size cap.
 
 Pool exhaustion adds `retry-after`, in seconds until the earliest-resetting
 token, floored at a minute (to agree with "come back soon") and capped at an
-hour. It rides on a 200, so no cache acts on it: it is for the landing page and
-for whoever is reading headers during an incident. No other row carries one -
+hour. A client over the cold-fetch cap adds one too, counting to the top of its
+hour. Both ride on a 200, so no cache acts on them: they are for the landing page
+and for whoever is reading headers during an incident. No other row carries one -
 nothing else knows a time.
 
 ## 5. Site (`site/` - Astro, static-first)

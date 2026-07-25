@@ -7,12 +7,16 @@
  */
 
 export {
+  coldKey,
+  COLD_TTL_S,
   guarded,
   historyKey,
   HISTORY_TTL_S,
   isFresh,
   MemoryKV,
+  missKey,
   newHealth,
+  NOT_FOUND_TTL_S,
   yearKey,
   YEAR_TTL_S,
 } from "./kv/index.js";
@@ -45,6 +49,8 @@ export type { PoolStats, RateLimitReading } from "./github/pool.js";
 
 export { Fetcher, yearWindows } from "./fetcher.js";
 export type { FetchResult, HistorySource, YearWindow } from "./fetcher.js";
+export { clientOf, ColdBudgetError, COLD_FETCHES_PER_HOUR, KvColdGuard } from "./guard.js";
+export type { ColdGuard, ColdGuardOptions } from "./guard.js";
 export { SingleFlight } from "./singleflight.js";
 export { registerSecret, scrub } from "./log.js";
 

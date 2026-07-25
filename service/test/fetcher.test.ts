@@ -3,7 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Fetcher, yearWindows } from "../src/fetcher.js";
 import { GitHubClient, GitHubError } from "../src/github/client.js";
 import { PatPool, PoolExhaustedError } from "../src/github/pool.js";
-import { guarded, historyKey, MemoryKV, newHealth, yearKey } from "../src/kv/index.js";
+import { ColdBudgetError, KvColdGuard } from "../src/guard.js";
+import { guarded, historyKey, MemoryKV, missKey, newHealth, yearKey } from "../src/kv/index.js";
 import { clearSecrets } from "../src/log.js";
 import { fakeGitHub } from "./helpers/fake-github.js";
 import type { FakeAccount, FakeGitHubOptions } from "./helpers/fake-github.js";
@@ -178,6 +179,7 @@ describe("caching", () => {
         get: () => Promise.reject(new Error("kv down")),
         set: () => Promise.reject(new Error("kv down")),
         del: () => Promise.reject(new Error("kv down")),
+        incr: () => Promise.reject(new Error("kv down")),
       },
       health,
     );
@@ -237,6 +239,48 @@ describe("failure paths", () => {
   it("reports an unknown user as notFound, not as a server error", async () => {
     const { fetcher } = build();
     await expect(fetcher.fetch("nobody", TODAY)).rejects.toMatchObject({ kind: "notFound" });
+  });
+
+  it("asks GitHub about a nonexistent login once, then remembers", async () => {
+    // The budget-drain vector: invented names are free to generate and each one
+    // used to cost a query. The second ask must not reach GitHub at all.
+    const { fetcher, github, kv } = build();
+
+    await expect(fetcher.fetch("nobody", TODAY)).rejects.toMatchObject({ kind: "notFound" });
+    const spent = github.calls.length;
+    expect(spent).toBeGreaterThan(0);
+    expect(await kv.get(missKey("nobody"))).toBe(TODAY);
+
+    await expect(fetcher.fetch("NoBody", TODAY)).rejects.toMatchObject({ kind: "notFound" });
+    expect(github.calls.length, "the negative entry is case-insensitive").toBe(spent);
+  });
+
+  it("does not remember a name it never asked about", async () => {
+    const { fetcher, kv } = build({ failWith: { Identity: 500 } });
+    await expect(fetcher.fetch("hana", TODAY)).rejects.toThrow(GitHubError);
+    expect(await kv.get(missKey("hana"))).toBeNull();
+  });
+
+  it("prefers a stale copy over a fresh notFound, and records nothing", async () => {
+    // A rename or a deletion should keep drawing the tree we have rather than
+    // burning the login into the negative cache.
+    const { fetcher, kv } = build();
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    await fetcher.fetch("hana", TODAY);
+
+    const gone = fakeGitHub({ accounts: [] });
+    const goneFetcher = new Fetcher({
+      kv,
+      client: new GitHubClient({
+        pool: new PatPool(["ghp_dddddddddddddddddddddddddddddddddddd"]),
+        fetchImpl: gone.fetchImpl,
+      }),
+    });
+
+    await expect(goneFetcher.fetch("hana", "2026-07-22")).resolves.toMatchObject({
+      source: "stale",
+    });
+    expect(await kv.get(missKey("hana"))).toBeNull();
   });
 
   it("classifies a 401 as unauthorized and benches the token", async () => {
@@ -362,5 +406,67 @@ describe("failure paths", () => {
       expect(String(call[0])).not.toContain(token);
       expect(String(call[0])).not.toContain("ghp_");
     }
+  });
+});
+
+describe("the cold-fetch cap", () => {
+  const guardFor = (kv: MemoryKV, cap: number) =>
+    new KvColdGuard({ kv, cap, now: () => Date.parse("2026-07-21T14:00:00Z") });
+
+  it("charges a cold fetch and refuses past the allowance", async () => {
+    const github = fakeGitHub({ accounts: [HANA, { ...HANA, login: "kaze" }] });
+    const kv = new MemoryKV();
+    const client = new GitHubClient({
+      pool: new PatPool(["ghp_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"]),
+      fetchImpl: github.fetchImpl,
+    });
+    const fetcher = new Fetcher({ kv, client, guard: guardFor(kv, 1) });
+
+    await expect(fetcher.fetch("hana", TODAY, "abc123")).resolves.toMatchObject({
+      source: "refreshed",
+    });
+    const spent = github.calls.length;
+
+    await expect(fetcher.fetch("kaze", TODAY, "abc123")).rejects.toBeInstanceOf(ColdBudgetError);
+    expect(github.calls.length, "the refusal happens before any query").toBe(spent);
+  });
+
+  it("does not charge a badge the cache can already answer", async () => {
+    const github = fakeGitHub({ accounts: [HANA] });
+    const kv = new MemoryKV();
+    const client = new GitHubClient({
+      pool: new PatPool(["ghp_ffffffffffffffffffffffffffffffffffff"]),
+      fetchImpl: github.fetchImpl,
+    });
+    const fetcher = new Fetcher({ kv, client, guard: guardFor(kv, 1) });
+
+    await fetcher.fetch("hana", TODAY, "abc123");
+    // Warm from here on, so a README hit a thousand times over costs nothing
+    // against the cap even though the cap is one.
+    for (let i = 0; i < 5; i += 1) {
+      await expect(fetcher.fetch("hana", TODAY, "abc123")).resolves.toMatchObject({
+        source: "fresh",
+      });
+    }
+    expect(kv.ops.incr).toBe(1);
+  });
+
+  it("still serves a stale tree to a client over its allowance", async () => {
+    const github = fakeGitHub({ accounts: [HANA] });
+    const kv = new MemoryKV();
+    const client = new GitHubClient({
+      pool: new PatPool(["ghp_gggggggggggggggggggggggggggggggggggg"]),
+      fetchImpl: github.fetchImpl,
+    });
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    await new Fetcher({ kv, client }).fetch("hana", TODAY);
+    const capped = new Fetcher({ kv, client, guard: guardFor(kv, 0) });
+
+    // A refused refresh is a failed fetch, and the failed-fetch path already
+    // knows what to do when KV holds yesterday's copy.
+    await expect(capped.fetch("hana", "2026-07-22", "abc123")).resolves.toMatchObject({
+      source: "stale",
+    });
   });
 });

@@ -22,7 +22,7 @@ export class MemoryKV implements KV {
   readonly #now: () => number;
 
   /** Counted so tests can prove the request flow spends what it claims. */
-  ops = { get: 0, set: 0, del: 0 };
+  ops = { get: 0, set: 0, del: 0, incr: 0 };
 
   constructor(options: MemoryKvOptions = {}) {
     this.#now = options.now ?? (() => Date.now());
@@ -54,6 +54,18 @@ export class MemoryKV implements KV {
     return Promise.resolve();
   }
 
+  incr(key: string, ttlSeconds: number): Promise<number> {
+    if (!Number.isFinite(ttlSeconds) || ttlSeconds <= 0) {
+      throw new RangeError(`ttlSeconds must be positive, got ${String(ttlSeconds)}`);
+    }
+    this.ops.incr += 1;
+    const entry = this.#entries.get(key);
+    const live = entry !== undefined && entry.expiresAtMs > this.#now();
+    const next = (live ? Number(entry.value) : 0) + 1;
+    this.#entries.set(key, { value: String(next), expiresAtMs: this.#now() + ttlSeconds * 1000 });
+    return Promise.resolve(next);
+  }
+
   /** Live key count, expiries excluded. Test and `/healthz` affordance. */
   get size(): number {
     const now = this.#now();
@@ -64,6 +76,6 @@ export class MemoryKV implements KV {
 
   clear(): void {
     this.#entries.clear();
-    this.ops = { get: 0, set: 0, del: 0 };
+    this.ops = { get: 0, set: 0, del: 0, incr: 0 };
   }
 }

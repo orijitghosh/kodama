@@ -115,6 +115,14 @@ first-of-day that refreshes.
 
 Commands per badge per month ≈ 330 × 1 + 30 × 3 ≈ **420**.
 
+The two guards (D-040) charge nothing to a warm badge: `n1:<login>` is read only
+when no history is cached, and the cold-fetch counter is incremented only on the
+path that was about to call GitHub. So the table above is unchanged for the ~92%
+case, and a cold user pays one extra `GET n1` and one `INCR c1` - two commands on
+a path that already costs nineteen. What they add is a ceiling on the *abusive*
+column, which had none: an invented login used to cost a full cold fetch, every
+time it was asked for.
+
 ## 3. Projections
 
 At ~420 commands per badge per month (D-030 halved this from ~900):
@@ -288,6 +296,23 @@ always starts the same way: **`curl https://<deployment>/healthz` and read
   403s during a spike does not cost the whole hour.
 - **Rollback:** revert the `s-maxage`/`isFresh` change; freshness returns at the
   cost of the traffic. No data migration either way - both are cache-policy only.
+
+**Is it a drain rather than load?** (D-040) Two signs separate a crawler from
+real traffic. `github.spent` climbing while `kv` key growth is dominated by
+`n1:*` means the queries are going to logins that do not exist - someone is
+walking a wordlist, and the negative cache is already absorbing the repeats.
+`c1:*` keys with counts at the cap mean single clients are being held; the tree
+they get is the seedling with a `retry-after` to the top of their hour, and the
+error-rate alert may fire off the back of it. That alert is doing its job, not
+misfiring - but check for the cap before assuming an outage.
+
+- **The cap is 40 cold fetches per client-hour**, `COLD_FETCHES_PER_HOUR` in
+  `service/src/guard.ts`. Lower it during an incident if one source is the whole
+  problem; raise it if legitimate shared-NAT traffic is being held (the held
+  requests are visible as `comeBack` in the CDN log via `X-Kodama-State`).
+- **It fails open on purpose.** If Upstash is down the cap counts nothing and
+  allows everything, so a KV outage during a drain is the one case where both
+  guards are off at once. Fix the store first (§6.2) - the cap comes back with it.
 
 ### 6.2 KV outage (`kv.errors` climbing, or `kind: "memory"` unexpectedly)
 

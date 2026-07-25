@@ -35,7 +35,16 @@ import type {
   StarsResponse,
   YearResponse,
 } from "./github/shape.js";
-import { historyKey, HISTORY_TTL_S, isFresh, yearKey, YEAR_TTL_S } from "./kv/index.js";
+import type { ColdGuard } from "./guard.js";
+import {
+  historyKey,
+  HISTORY_TTL_S,
+  isFresh,
+  missKey,
+  NOT_FOUND_TTL_S,
+  yearKey,
+  YEAR_TTL_S,
+} from "./kv/index.js";
 import type { KV } from "./kv/index.js";
 import { warn } from "./log.js";
 import { normalize } from "./normalize.js";
@@ -58,29 +67,50 @@ export interface FetcherOptions {
   client: GitHubClient;
   /** Shared across requests in one instance; the stampede guard. */
   singleFlight?: SingleFlight<FetchResult>;
+  /**
+   * The per-client cold-fetch cap. Optional so the unit suites can drive the
+   * fetcher without one; production always passes the container's (guard.ts).
+   */
+  guard?: ColdGuard;
 }
 
 export class Fetcher {
   readonly #kv: KV;
   readonly #client: GitHubClient;
   readonly #single: SingleFlight<FetchResult>;
+  readonly #guard: ColdGuard | null;
 
   constructor(options: FetcherOptions) {
     this.#kv = options.kv;
     this.#client = options.client;
     this.#single = options.singleFlight ?? new SingleFlight<FetchResult>();
+    this.#guard = options.guard ?? null;
   }
 
-  /** `today` is the request's UTC date - the caller's only clock. */
-  async fetch(login: string, today: string): Promise<FetchResult> {
+  /**
+   * `today` is the request's UTC date - the caller's only clock. `client` is who
+   * to charge a cold fetch to (guard.ts); null is uncharged.
+   */
+  async fetch(login: string, today: string, client: string | null = null): Promise<FetchResult> {
     const cached = await this.#readHistory(login);
     if (cached !== null && isFresh(cached.fetchedAt, today)) {
       return { history: cached, source: "fresh" };
     }
+
+    // A login GitHub has already denied costs a KV read instead of a query. Only
+    // consulted with nothing cached: a login we hold a history for has existed,
+    // and a rename or deletion should reach the stale path below, not this one.
+    if (cached === null && (await this.#kv.get(missKey(login))) !== null) {
+      throw new GitHubError("notFound", "user not found (cached)", 404);
+    }
+
     // Keyed by login, not by login+date: two requests either side of midnight
     // want the same fetch, and the loser re-reads a cache that is now warm.
     return this.#single.run(login.toLowerCase(), async () => {
       try {
+        // Inside the flight, so the request that waits on someone else's fetch
+        // is not charged for it, and after the caches, so a warm badge is free.
+        await this.#guard?.charge(client);
         const history = await this.#refresh(login, today);
         return { history, source: "refreshed" };
       } catch (err) {
@@ -91,6 +121,9 @@ export class Fetcher {
             reason: err instanceof Error ? err.name : "unknown",
           });
           return { history: cached, source: "stale" };
+        }
+        if (err instanceof GitHubError && err.kind === "notFound") {
+          await this.#kv.set(missKey(login), today, NOT_FOUND_TTL_S);
         }
         throw err;
       }

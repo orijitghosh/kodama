@@ -79,6 +79,10 @@ M0-M6)". This file is where that definition is walked.
 - [x] Image error-rate meter + alert (the only place a 200'd failure is counted).
 - [x] Runbook written: rate-limit, KV outage, camo change, rollback = engine pin
       (OPS.md §6).
+- [x] **Per-client cold-fetch cap and negative cache for unknown logins** (D-040)
+      - the PRD's "per-IP cache-miss limits", the last unbuilt line of the cost
+      model. Both fail open; a refused client still gets a tree and a
+      `retry-after`. Runbook entry in OPS §6.1.
 - [ ] **Uptime check configured to poll `/healthz` and page on a non-empty
       `alerts` array.** **[manual]**
 

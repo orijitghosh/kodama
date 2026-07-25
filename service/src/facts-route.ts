@@ -18,6 +18,7 @@ import { receiptsFor, treeFacts } from "@kodama/engine";
 import type { NormalizedHistory, Receipt, TreeFacts } from "@kodama/engine";
 
 import type { Fetcher } from "./fetcher.js";
+import { ColdBudgetError, clientOf } from "./guard.js";
 import { GitHubError } from "./github/client.js";
 import { PoolExhaustedError } from "./github/pool.js";
 import { isValidLogin, loginFromPath, parseOptions, restorePath } from "./params.js";
@@ -82,12 +83,17 @@ export async function handleFacts(request: Request, deps: FactsDeps): Promise<Re
   let history: NormalizedHistory;
   let stale: boolean;
   try {
-    const result = await deps.fetcher.fetch(login, today);
+    const result = await deps.fetcher.fetch(login, today, clientOf(request));
     history = result.history;
     stale = result.source === "stale";
   } catch (err) {
     if (err instanceof GitHubError && err.kind === "notFound") {
       return fail(404, "notFound", "No such GitHub account.");
+    }
+    // The cap answers with a status here rather than a picture (D-034): a
+    // `fetch()` caller can branch on 503, and an <img> cannot.
+    if (err instanceof ColdBudgetError) {
+      return fail(503, "unavailable", "Too many cold lookups from here; try again shortly.");
     }
     if (err instanceof GitHubError || err instanceof PoolExhaustedError) {
       return fail(503, "unavailable", "Upstream is unavailable; try again shortly.");

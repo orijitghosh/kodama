@@ -93,7 +93,8 @@ describe("MemoryKV", () => {
     await kv.get("k");
     await kv.get("missing");
     await kv.del("k");
-    expect(kv.ops).toEqual({ get: 2, set: 1, del: 1 });
+    await kv.incr("c", 60);
+    expect(kv.ops).toEqual({ get: 2, set: 1, del: 1, incr: 1 });
   });
 });
 
@@ -102,6 +103,7 @@ describe("guarded", () => {
     get: () => Promise.reject(new Error("upstash down")),
     set: () => Promise.reject(new Error("upstash down")),
     del: () => Promise.reject(new Error("upstash down")),
+    incr: () => Promise.reject(new Error("upstash down")),
   };
 
   it("turns a failing store into a cold cache, not an error", async () => {

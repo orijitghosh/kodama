@@ -1,10 +1,10 @@
 /**
  * Upstash Redis over its REST API (D-027).
  *
- * No SDK. The port is three methods and Upstash's REST surface is three URLs,
- * so a dependency would only add retries we do not want (a slow cache is worse
- * than a missed one) and another client to keep current. `fetch` is ambient on
- * every runtime this package targets.
+ * No SDK. The port is four methods over two REST shapes - one command, or a
+ * pipeline of them - so a dependency would only add retries we do not want (a
+ * slow cache is worse than a missed one) and another client to keep current.
+ * `fetch` is ambient on every runtime this package targets.
  *
  * Credentials arrive as `KV_REST_API_URL` / `KV_REST_API_TOKEN`, injected by
  * the Vercel Marketplace integration. They are the same names the sunset Vercel
@@ -62,31 +62,69 @@ export class UpstashKV implements KV {
   }
 
   /**
+   * INCR then EXPIRE, in one round trip over Upstash's pipeline endpoint.
+   *
+   * Two commands because Redis has no "increment with expiry"; one request
+   * because a cap that costs two round trips on the cold path is a cap that
+   * makes the thing it protects slower. The expiry is re-set on every hit rather
+   * than only on creation - the key already carries its hour in its name, so
+   * refreshing the TTL cannot widen the window it counts.
+   */
+  async incr(key: string, ttlSeconds: number): Promise<number> {
+    if (!Number.isFinite(ttlSeconds) || ttlSeconds <= 0) {
+      throw new RangeError(`ttlSeconds must be positive, got ${String(ttlSeconds)}`);
+    }
+    const results = await this.#pipeline([
+      ["INCR", key],
+      ["EXPIRE", key, String(Math.floor(ttlSeconds))],
+    ]);
+    const count = results[0];
+    if (typeof count !== "number") throw new Error("upstash INCR returned no count");
+    return count;
+  }
+
+  /**
    * Upstash's REST protocol: the command is the JSON body, the reply is
    * `{ result }` or `{ error }`.
    */
   async #command(command: readonly string[]): Promise<unknown> {
+    const reply = (await this.#post(this.#url, command, command[0])) as UpstashReply;
+    if (typeof reply.error === "string") {
+      throw new Error(`upstash ${command[0] ?? "?"} failed: ${reply.error}`);
+    }
+    return reply.result ?? null;
+  }
+
+  /** The same protocol, batched: an array of commands in, an array of replies out. */
+  async #pipeline(commands: readonly (readonly string[])[]): Promise<unknown[]> {
+    const label = commands[0]?.[0];
+    const reply = (await this.#post(`${this.#url}/pipeline`, commands, label)) as UpstashReply[];
+    if (!Array.isArray(reply)) throw new Error(`upstash ${label ?? "?"} failed: not a pipeline`);
+    return reply.map((entry) => {
+      if (typeof entry.error === "string") {
+        throw new Error(`upstash ${label ?? "?"} failed: ${entry.error}`);
+      }
+      return entry.result ?? null;
+    });
+  }
+
+  async #post(url: string, body: unknown, label: string | undefined): Promise<unknown> {
     const signal = AbortSignal.timeout(this.#timeoutMs);
-    const response = await this.#fetch(this.#url, {
+    const response = await this.#fetch(url, {
       method: "POST",
       headers: {
         authorization: `Bearer ${this.#token}`,
         "content-type": "application/json",
       },
-      body: JSON.stringify(command),
+      body: JSON.stringify(body),
       signal,
     });
 
     if (!response.ok) {
       // The key can name a login, so the command is not echoed into the error.
-      throw new Error(`upstash ${command[0] ?? "?"} failed: HTTP ${String(response.status)}`);
+      throw new Error(`upstash ${label ?? "?"} failed: HTTP ${String(response.status)}`);
     }
-
-    const reply = (await response.json()) as UpstashReply;
-    if (typeof reply.error === "string") {
-      throw new Error(`upstash ${command[0] ?? "?"} failed: ${reply.error}`);
-    }
-    return reply.result ?? null;
+    return await response.json();
   }
 }
 

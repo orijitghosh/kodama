@@ -13,9 +13,10 @@ const URL_ = "https://eu1-example.upstash.io";
 const TOKEN = "AX1sASQgZmFrZS10b2tlbi1mb3ItdGVzdHM=";
 
 function fakeUpstash(reply: unknown, status = 200) {
-  const calls: { body: unknown; headers: Record<string, string> }[] = [];
-  const fetchImpl = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+  const calls: { url: string; body: unknown; headers: Record<string, string> }[] = [];
+  const fetchImpl = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
     calls.push({
+      url: String(url),
       body: JSON.parse(String(init?.body ?? "null")),
       headers: (init?.headers ?? {}) as Record<string, string>,
     });
@@ -48,6 +49,29 @@ describe("the wire format", () => {
     const f = fakeUpstash({ result: "OK" });
     await store(f).set("k", "v", 90.7);
     expect(f.calls[0]?.body).toEqual(["SET", "k", "v", "EX", "90"]);
+  });
+
+  it("sends INCR and EXPIRE as one pipelined round trip", async () => {
+    // Two round trips on the cold path would make the cap cost what it protects.
+    const f = fakeUpstash([{ result: 3 }, { result: 1 }]);
+    expect(await store(f).incr("c1:abc:489", 7_200)).toBe(3);
+
+    expect(f.calls).toHaveLength(1);
+    expect(f.calls[0]?.url).toBe(`${URL_}/pipeline`);
+    expect(f.calls[0]?.body).toEqual([
+      ["INCR", "c1:abc:489"],
+      ["EXPIRE", "c1:abc:489", "7200"],
+    ]);
+  });
+
+  it("throws when a pipelined command reports an error", async () => {
+    const f = fakeUpstash([{ result: 1 }, { error: "ERR unknown command" }]);
+    await expect(store(f).incr("c1:abc:489", 60)).rejects.toThrow(/EXPIRE|INCR/);
+  });
+
+  it("throws rather than inventing a count when the reply is not a number", async () => {
+    const f = fakeUpstash([{ result: "three" }, { result: 1 }]);
+    await expect(store(f).incr("c1:abc:489", 60)).rejects.toThrow(/no count/);
   });
 
   it("refuses a non-positive TTL without a round trip", async () => {
