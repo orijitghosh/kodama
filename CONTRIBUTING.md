@@ -80,7 +80,12 @@ it that way.
 
 ## What lives where
 
-`dev/*.md` is the complete design and ships in the repo but never in a deploy;
-read `dev/README.md` for the map. `engine/` is pure, `service/` is everything
-impure, `site/` is the pages, `api/` is the thin Vercel adapters. Where the PRD
-and a SPEC disagree, the SPEC wins.
+`engine/` is pure, `service/` is everything impure, `site/` is the pages, `api/`
+is the thin Vercel adapters.
+
+The design notebook - product spec, engine and service specs, the decision log,
+the runbook, the platform spikes - is kept out of the repo. What a contributor
+needs from it is here and in `dev/TASTE.md`, which does ship: the aesthetic
+contract, the taste-gate procedure, and the gate artifacts the test suite pins.
+If a rule seems to be missing its reasoning, ask in the issue rather than
+guessing - the reasoning exists, it just is not public.

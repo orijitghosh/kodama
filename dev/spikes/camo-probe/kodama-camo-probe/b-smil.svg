@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="240" height="60" viewBox="0 0 240 60">
-  <!-- probe:smil v1 -->
-  <rect width="240" height="60" fill="#101312"/>
-  <text x="10" y="20" fill="#9aa39d" font-family="monospace" font-size="11">b. SMIL animate</text>
-  <circle cx="20" cy="42" r="8" fill="#5a806c">
-    <animate attributeName="cx" values="20;200;20" dur="3s" repeatCount="indefinite"/>
-  </circle>
-</svg>

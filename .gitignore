@@ -10,8 +10,15 @@ coverage/
 tmp/
 debug/
 
+# dev/ is the owner's working notebook - specs, decisions, runbook, spikes -
+# and stays local. The taste material is the exception: the gate suites read
+# dev/taste/gate-1 and gate-2, so those artifacts have to ship or CI cannot run.
+dev/*
+!dev/TASTE.md
+!dev/taste/
+
 # Recorded with the owner's own token: a self-query returns private
-# contribution counts in the calendar (dev/spikes/SPIKE-GRAPHQL.md §6).
+# contribution counts in the calendar (SPIKE-GRAPHQL.md §6).
 dev/spikes/graphql/orijit*
 site/test-results/
 site/playwright-report/
