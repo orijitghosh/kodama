@@ -22,7 +22,16 @@ import { warn } from "./log.js";
 import type { Meter } from "./meter.js";
 import { isValidLogin, loginFromPath, parseOptions, restorePath } from "./params.js";
 
-export const ENGINE_VERSION = "v1";
+/**
+ * The grammar version, announced rather than silent (PRD §Engine versioning).
+ *
+ * v2 is species: the leaf mass, the autumn colour, the flower and the fruit now
+ * follow the top language, and stars are drawn on every theme instead of only the
+ * night ones. Every existing tree changes, which is exactly the case this header
+ * and the changelog were put here for - and it is why rollback is a pin on this
+ * value (OPS §6.4) rather than a revert of the drawing.
+ */
+export const ENGINE_VERSION = "v2";
 
 /** Content type, byte-for-byte what camo proxied intact (SPIKE-CAMO). */
 const SVG_TYPE = "image/svg+xml; charset=utf-8";

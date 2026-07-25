@@ -50,6 +50,9 @@ export {
 export { fnv1a32, mulberry32, seedFromLogin, streamsFor, streamsForLogin } from "./rng.js";
 export type { Rng, RngStreams } from "./rng.js";
 
+export { DEFAULT_SPECIES, isClassic, SPECIES_NAMES, speciesByName } from "./species.js";
+export type { BlossomKind, FruitKind, LeafKind, Species, SpeciesName } from "./species.js";
+
 export { treeFacts } from "./facts.js";
 export { receiptsFor } from "./receipts.js";
 export type { Receipt } from "./receipts.js";

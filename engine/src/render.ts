@@ -9,6 +9,8 @@ import { animationStyles } from "./animate.js";
 import { drawBonsai } from "./biomes/bonsai.js";
 import { treeFacts } from "./facts.js";
 import { biographyFor, labelsFor } from "./locale.js";
+import { isClassic, speciesByName } from "./species.js";
+import type { Species } from "./species.js";
 import { el, escapeText, group, rect, svgDocument, text } from "./svg.js";
 import { paletteStyles, slot, themeByName, tintRotation } from "./themes.js";
 import type { NormalizedHistory, RenderOptions, Scale, Theme, TreeFacts } from "./types.js";
@@ -58,15 +60,45 @@ function drawCard(width: number, height: number): string {
   ].join("");
 }
 
-function drawHeader(facts: TreeFacts, width: number, locale: string): string {
+function drawHeader(
+  facts: TreeFacts,
+  width: number,
+  locale: string,
+  species: Species,
+): string {
   const labels = labelsFor(locale);
   return group({ class: "kd-header" }, [
-    text(MARGIN, 40, `kodama · @${facts.login}`, {
-      fill: slot("textPrimary"),
-      "font-family": SANS,
-      "font-size": 14,
-      "font-weight": 600,
-    }),
+    // The species is named here rather than given a legend dot: it is what kind
+    // of plant this is, not another symbol hung on it, and the legend already
+    // reaches nine rows for a maintainer (D-024).
+    //
+    // A `tspan` rather than a second `text`, because a second text element would
+    // need the width of the login to position itself, and there is no font metric
+    // in an engine that ships no fonts (D-011). The tspan simply flows after.
+    isClassic(species)
+      ? text(MARGIN, 40, `kodama · @${facts.login}`, {
+          fill: slot("textPrimary"),
+          "font-family": SANS,
+          "font-size": 14,
+          "font-weight": 600,
+        })
+      : el(
+          "text",
+          {
+            x: MARGIN,
+            y: 40,
+            fill: slot("textPrimary"),
+            "font-family": SANS,
+            "font-size": 14,
+            "font-weight": 600,
+          },
+          escapeText(`kodama · @${facts.login}`) +
+            el(
+              "tspan",
+              { fill: slot("textSecondary"), "font-weight": 400 },
+              escapeText(` · ${species.label}`),
+            ),
+        ),
     text(width - MARGIN, 40, `${labels.seasons[facts.season]} · ${facts.date}`, {
       fill: slot("textSecondary"),
       "font-family": MONO,
@@ -138,7 +170,13 @@ function drawStats(facts: TreeFacts, theme: Theme, locale: string): string {
   entry(o.shoots > 0, slot("foliage3"), labels.legendShoots);
   entry(o.unripeFruit > 0, slot("foliage3"), labels.legendUnripe);
   entry(o.bird !== "none", slot("textSecondary"), labels.legendBird);
-  entry(theme.night && o.fireflies > 0, slot("firefly"), labels.legendFireflies);
+  // Stars are on every theme now; only the mark changes with the light, so the
+  // legend names whichever one is actually drawn (D-024).
+  entry(
+    o.fireflies > 0,
+    theme.night ? slot("firefly") : slot("blossom1"),
+    theme.night ? labels.legendFireflies : labels.legendButterflies,
+  );
   entry(o.windChime, slot("textSecondary"), labels.legendChime);
 
   const bottom = 388;
@@ -161,24 +199,34 @@ function drawStats(facts: TreeFacts, theme: Theme, locale: string): string {
 // Entry point
 // ---------------------------------------------------------------------------
 
-function renderFull(facts: TreeFacts, theme: Theme, opts: RenderOptions): string {
+function renderFull(
+  facts: TreeFacts,
+  theme: Theme,
+  species: Species,
+  opts: RenderOptions,
+): string {
   const { width, height } = SCALE_SIZES.full;
   return [
     drawCard(width, height),
-    drawHeader(facts, width, opts.locale),
-    drawBonsai(facts, theme).svg,
+    drawHeader(facts, width, opts.locale, species),
+    drawBonsai(facts, theme, species).svg,
     drawStats(facts, theme, opts.locale),
   ].join("");
 }
 
-function renderCompact(facts: TreeFacts, theme: Theme, opts: RenderOptions): string {
+function renderCompact(
+  facts: TreeFacts,
+  theme: Theme,
+  species: Species,
+  opts: RenderOptions,
+): string {
   const { width, height } = SCALE_SIZES.compact;
   const labels = labelsFor(opts.locale);
   // The tree is drawn at full-scale coordinates and scaled into place, so one
   // geometry serves every size and the composition cannot drift between them.
   const tree = group(
     { transform: "translate(6 4) scale(0.38)" },
-    drawBonsai(facts, theme, "reduced").svg,
+    drawBonsai(facts, theme, species, "reduced").svg,
   );
   return [
     drawCard(width, height),
@@ -204,12 +252,17 @@ function renderCompact(facts: TreeFacts, theme: Theme, opts: RenderOptions): str
   ].join("");
 }
 
-function renderStrip(facts: TreeFacts, theme: Theme, opts: RenderOptions): string {
+function renderStrip(
+  facts: TreeFacts,
+  theme: Theme,
+  species: Species,
+  opts: RenderOptions,
+): string {
   const { width, height } = SCALE_SIZES.strip;
   const labels = labelsFor(opts.locale);
   const tree = group(
     { transform: "translate(4 -6) scale(0.22)" },
-    drawBonsai(facts, theme, "silhouette").svg,
+    drawBonsai(facts, theme, species, "silhouette").svg,
   );
   return [
     drawCard(width, height),
@@ -235,11 +288,11 @@ function renderStrip(facts: TreeFacts, theme: Theme, opts: RenderOptions): strin
 }
 
 /** 88×31, static, a deliberate wink at old-web badge culture. */
-function renderButton(facts: TreeFacts, theme: Theme): string {
+function renderButton(facts: TreeFacts, theme: Theme, species: Species): string {
   const { width, height } = SCALE_SIZES.button;
   return [
     drawCard(width, height),
-    drawBonsai(facts, theme, "glyph").svg,
+    drawBonsai(facts, theme, species, "glyph").svg,
     text(34, 19, buttonLabel(facts.login), {
       fill: slot("textPrimary"),
       "font-family": SANS,
@@ -274,26 +327,33 @@ export function render(
 
   const facts = treeFacts(validated, date);
   const theme = themeByName(opts.theme);
+  const species = speciesByName(opts.species);
   const { width, height } = SCALE_SIZES[opts.scale];
 
   const body =
     opts.scale === "full"
-      ? renderFull(facts, theme, opts)
+      ? renderFull(facts, theme, species, opts)
       : opts.scale === "compact"
-        ? renderCompact(facts, theme, opts)
+        ? renderCompact(facts, theme, species, opts)
         : opts.scale === "strip"
-          ? renderStrip(facts, theme, opts)
-          : renderButton(facts, theme);
+          ? renderStrip(facts, theme, species, opts)
+          : renderButton(facts, theme, species);
 
-  const biography = biographyFor(facts, opts.locale);
+  const biography = biographyFor(facts, opts.locale, species);
 
   // Motion is the full badge's alone (TASTE §6): at the small scales the tree is
   // under half size and drifting dots read as speckle, not weather. When off,
   // nothing is appended, so a static card is byte-identical to one with no
   // animation layer at all - which is what makes `animate=off` a clean strip.
   const style =
-    paletteStyles(theme, facts.season, tintRotation(facts.languages, opts.tint)) +
-    (opts.animate && opts.scale === "full" ? animationStyles() : "");
+    paletteStyles(
+      theme,
+      facts.season,
+      tintRotation(facts.languages, opts.tint),
+      // An alternate species brings its own autumn (species.ts): a ginkgo goes
+      // gold, a maple scarlet. `classic` passes null and keeps the global amber.
+      species.autumn,
+    ) + (opts.animate && opts.scale === "full" ? animationStyles() : "");
 
   return svgDocument(
     {

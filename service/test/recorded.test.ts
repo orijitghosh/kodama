@@ -98,6 +98,7 @@ describe("recorded GitHub responses", () => {
           scale: "full",
           animate: false,
           tint: "lang",
+          species: "classic",
           locale: "en",
         });
         expect(svg.startsWith("<svg")).toBe(true);

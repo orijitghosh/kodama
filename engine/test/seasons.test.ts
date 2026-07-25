@@ -12,6 +12,7 @@ import { buildClusters, drawSeasonal } from "../src/biomes/bonsai.js";
 import { seasonalEventsFor, seasonFor, treeFacts } from "../src/facts.js";
 import { render } from "../src/render.js";
 import { seedFromLogin } from "../src/rng.js";
+import { speciesByName } from "../src/species.js";
 import { buildSkeleton } from "../src/skeleton.js";
 import { paletteForSeason, paletteStyles, themeByName, PALETTE_SLOTS } from "../src/themes.js";
 import type { Detail } from "../src/biomes/bonsai.js";
@@ -194,7 +195,7 @@ function seasonalFor(
   const seed = seedFromLogin(facts.login);
   const skeleton = buildSkeleton(seed, facts.maturity);
   const clusters = buildClusters(skeleton, facts, seed, detail);
-  return drawSeasonal(skeleton, clusters, facts, seed, detail);
+  return drawSeasonal(skeleton, clusters, facts, speciesByName("classic"), seed, detail);
 }
 
 describe("seasonal drawing", () => {
@@ -222,7 +223,7 @@ describe("seasonal drawing", () => {
       const seed = seedFromLogin(facts.login);
       const skeleton = buildSkeleton(seed, facts.maturity);
       const clusters = buildClusters(skeleton, facts, seed, "full");
-      const svg = drawSeasonal(skeleton, clusters, facts, seed, "full");
+      const svg = drawSeasonal(skeleton, clusters, facts, speciesByName("classic"), seed, "full");
 
       const blobs = clusters.flatMap((c) => c.blobs);
       const start = svg.indexOf('class="kd-snow"');
@@ -292,6 +293,7 @@ describe("winter thinning", () => {
       scale: "full" as const,
       animate: false,
       tint: "none" as const,
+      species: "classic" as const,
       locale: "en",
     };
     const whale = loadFixture("whale");
@@ -322,6 +324,7 @@ describe("a year of one account", () => {
       scale: "full" as const,
       animate: false,
       tint: "none" as const,
+      species: "classic" as const,
       locale: "en",
     };
     const veteran = loadFixture("veteran");

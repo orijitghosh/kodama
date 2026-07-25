@@ -254,9 +254,20 @@ export function tintRotation(languages: LangShare[], tint: RenderOptions["tint"]
  * Season and tint are composed into a single shift so the foliage is quantised
  * once rather than twice - a second hex round-trip would only add rounding
  * error. Both touch the foliage alone: trunk, pot and text hold still.
+ *
+ * Autumn is the one season a species overrides. A ginkgo in October and a pine
+ * in October are different pictures, and the single global amber turned every
+ * tree the same colour in the same week - which spent the seasonal wave the PRD
+ * is counting on rather than multiplying it. Species passes its own shift here;
+ * the other three seasons stay global, because new growth is new growth.
  */
-export function paletteForSeason(palette: Palette, season: Season, tintDeg = 0): Palette {
-  const base = SEASON_SHIFTS[season];
+export function paletteForSeason(
+  palette: Palette,
+  season: Season,
+  tintDeg = 0,
+  autumn: ColorShift | null = null,
+): Palette {
+  const base = season === "autumn" && autumn !== null ? autumn : SEASON_SHIFTS[season];
   if (base === null && tintDeg === 0) return palette;
 
   const shift: ColorShift = { ...base, rotate: (base?.rotate ?? 0) + tintDeg };
@@ -278,12 +289,17 @@ export function slot(name: keyof Palette): string {
  * them. One URL then serves both, which is what keeps the funnel to a single
  * pasted line.
  */
-export function paletteStyles(theme: Theme, season: Season = "summer", tintDeg = 0): string {
+export function paletteStyles(
+  theme: Theme,
+  season: Season = "summer",
+  tintDeg = 0,
+  autumn: ColorShift | null = null,
+): string {
   const declare = (palette: Palette): string =>
     PALETTE_SLOTS.map((name) => `--kd-${name}:${palette[name]}`).join(";");
 
   return (
-    `svg{${declare(paletteForSeason(theme.light, season, tintDeg))}}` +
-    `@media(prefers-color-scheme:dark){svg{${declare(paletteForSeason(theme.dark, season, tintDeg))}}}`
+    `svg{${declare(paletteForSeason(theme.light, season, tintDeg, autumn))}}` +
+    `@media(prefers-color-scheme:dark){svg{${declare(paletteForSeason(theme.dark, season, tintDeg, autumn))}}}`
   );
 }

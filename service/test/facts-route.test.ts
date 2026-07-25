@@ -10,6 +10,7 @@
 import { describe, expect, it } from "vitest";
 
 import { Fetcher } from "../src/fetcher.js";
+import { ENGINE_VERSION } from "../src/route.js";
 import { handleFacts } from "../src/facts-route.js";
 import type { FactsBody, FactsError } from "../src/facts-route.js";
 import { GitHubClient } from "../src/github/client.js";
@@ -57,7 +58,7 @@ describe("handleFacts", () => {
 
     const body = (await response.json()) as FactsBody;
     expect(body.v).toBe(1);
-    expect(body.engine).toBe("v1");
+    expect(body.engine).toBe(ENGINE_VERSION);
     expect(body.login).toBe("hana");
     expect(body.date).toBe(TODAY);
     expect(body.stale).toBe(false);

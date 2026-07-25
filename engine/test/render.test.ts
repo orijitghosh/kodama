@@ -23,6 +23,7 @@ const opts = (over: Partial<RenderOptions> = {}): RenderOptions => ({
   scale: "full",
   animate: false,
   tint: "none",
+  species: "classic",
   locale: "en",
   ...over,
 });

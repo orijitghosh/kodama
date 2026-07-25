@@ -47,6 +47,7 @@ const GATE_OPTIONS: Omit<RenderOptions, "theme"> = {
   scale: "full",
   animate: false,
   tint: "none",
+  species: "classic",
   locale: "en",
 };
 

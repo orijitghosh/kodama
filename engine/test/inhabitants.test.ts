@@ -12,6 +12,7 @@ import { drawInhabitants } from "../src/biomes/bonsai.js";
 import { treeFacts } from "../src/facts.js";
 import { seedFromLogin } from "../src/rng.js";
 import { buildSkeleton } from "../src/skeleton.js";
+import { speciesByName } from "../src/species.js";
 import { themeByName } from "../src/themes.js";
 import type { Detail } from "../src/biomes/bonsai.js";
 import type { NormalizedHistory, ThemeName } from "../src/types.js";
@@ -28,7 +29,7 @@ function inhabitantsFor(
   const facts = treeFacts(history, DATE);
   const seed = seedFromLogin(facts.login);
   const skeleton = buildSkeleton(seed, facts.maturity);
-  return drawInhabitants(skeleton, facts, themeByName(theme), seed, detail);
+  return drawInhabitants(skeleton, facts, themeByName(theme), speciesByName("classic"), seed, detail);
 }
 
 function countClass(svg: string, className: string): number {

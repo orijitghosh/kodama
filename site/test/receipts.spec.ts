@@ -28,6 +28,7 @@ const svg = render(history, TODAY, {
   scale: "full",
   animate: false,
   tint: "none",
+  species: "classic",
   locale: "en",
 });
 

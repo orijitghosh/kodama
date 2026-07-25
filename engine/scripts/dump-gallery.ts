@@ -35,6 +35,7 @@ const base: RenderOptions = {
   scale: "full",
   animate: false,
   tint: "none",
+  species: "classic",
   locale: "en",
 };
 

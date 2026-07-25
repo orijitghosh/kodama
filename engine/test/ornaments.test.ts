@@ -13,6 +13,7 @@ import { treeFacts } from "../src/facts.js";
 import { render } from "../src/render.js";
 import { seedFromLogin } from "../src/rng.js";
 import { buildSkeleton } from "../src/skeleton.js";
+import { speciesByName } from "../src/species.js";
 import { themeByName } from "../src/themes.js";
 import type { Detail } from "../src/biomes/bonsai.js";
 import type { NormalizedHistory, PRStub, ThemeName } from "../src/types.js";
@@ -29,7 +30,7 @@ function ornamentsFor(
   const facts = treeFacts(history, DATE);
   const seed = seedFromLogin(facts.login);
   const skeleton = buildSkeleton(seed, facts.maturity);
-  return drawOrnaments(skeleton, facts, themeByName(theme), seed, detail);
+  return drawOrnaments(skeleton, facts, themeByName(theme), speciesByName("classic"), seed, detail);
 }
 
 /** Counts occurrences of a class, which is one element each by construction. */
@@ -246,7 +247,15 @@ describe("ornaments in a full render", () => {
         recentPRs: [{ mergedAt: "2026-07-12", bucket: 2 }],
       }),
       DATE,
-      { biome: "bonsai", theme: "ink", scale: "full", animate: false, tint: "none", locale: "en" },
+      {
+        biome: "bonsai",
+        theme: "ink",
+        scale: "full",
+        animate: false,
+        tint: "none",
+        species: "classic",
+        locale: "en",
+      },
     );
 
     expect(svg).toContain("kd-ornaments");

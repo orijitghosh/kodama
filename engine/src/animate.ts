@@ -48,13 +48,22 @@ export function animationStyles(): string {
     `.kd-firefly{animation:kd-drift 4s ease-in-out infinite}` +
     `.kd-firefly:nth-of-type(2n){animation-delay:-1.3s}` +
     `.kd-firefly:nth-of-type(3n){animation-delay:-2.6s}` +
+    // Butterflies are the day form of the same mark, so they wander on the same
+    // path - but they do not breathe. A firefly's dim-to-bright is the whole
+    // point of a firefly and reads as a flicker on anything with wings, so this
+    // is `kd-wander`: the drift without the opacity.
+    `.kd-butterfly{animation:kd-wander 5s ease-in-out infinite}` +
+    `.kd-butterfly:nth-of-type(2n){animation-delay:-1.7s}` +
+    `.kd-butterfly:nth-of-type(3n){animation-delay:-3.3s}` +
     `@keyframes kd-sway{0%,100%{transform:rotate(-0.8deg)}50%{transform:rotate(0.8deg)}}` +
     `@keyframes kd-fall{0%{transform:translateY(0);opacity:.85}80%{opacity:.85}` +
     `100%{transform:translateY(46px);opacity:0}}` +
     `@keyframes kd-drift{0%,100%{transform:translate(0,0);opacity:.3}` +
     `50%{transform:translate(10px,-6px);opacity:.8}}` +
+    `@keyframes kd-wander{0%,100%{transform:translate(0,0)}` +
+    `50%{transform:translate(9px,-7px)}}` +
     // Respect the OS setting: no motion at all when the reader asked for none.
     `@media(prefers-reduced-motion:reduce){` +
-    `.kd-pad,.kd-petal,.kd-flake,.kd-firefly{animation:none}}`
+    `.kd-pad,.kd-petal,.kd-flake,.kd-firefly,.kd-butterfly{animation:none}}`
   );
 }

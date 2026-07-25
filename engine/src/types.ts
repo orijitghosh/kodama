@@ -1,3 +1,5 @@
+import type { SpeciesName } from "./species.js";
+
 /**
  * The engine's data contract (SPEC-ENGINE §1-2).
  *
@@ -97,6 +99,12 @@ export interface RenderOptions {
   /** The caller resolves "auto" against prefers-reduced-motion before we see it. */
   animate: boolean;
   tint: "lang" | "none";
+  /**
+   * Which plant to draw (species.ts). `classic` is the tree as shipped and the
+   * default; the alternates are a choice, never derived from the history, so this
+   * lives here with the other URL options rather than in TreeFacts.
+   */
+  species: SpeciesName;
   /** BCP-47. Affects <title>/<desc> and labels only. */
   locale: string;
 }

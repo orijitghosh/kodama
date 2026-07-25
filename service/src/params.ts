@@ -8,8 +8,8 @@
  * typo in `theme=inkk` should still leave a tree in the README.
  */
 
-import { BIOMES, isValidDate, SCALES, THEME_NAMES } from "@kodama/engine";
-import type { Biome, RenderOptions, Scale, ThemeName } from "@kodama/engine";
+import { BIOMES, DEFAULT_SPECIES, isValidDate, SCALES, SPECIES_NAMES, THEME_NAMES } from "@kodama/engine";
+import type { Biome, RenderOptions, Scale, SpeciesName, ThemeName } from "@kodama/engine";
 
 /**
  * GitHub's rule: 1-39 chars, alphanumeric or hyphen, no leading hyphen.
@@ -101,6 +101,7 @@ export const OPTION_DEFAULTS: RenderOptions = {
   scale: "full",
   animate: true,
   tint: "none",
+  species: DEFAULT_SPECIES,
   locale: "en",
 };
 
@@ -122,6 +123,9 @@ export function parseOptions(params: URLSearchParams): ParsedOptions {
   const scale = pick<Scale>("scale", SCALES, OPTION_DEFAULTS.scale);
   const biome = pick<Biome>("biome", BIOMES, OPTION_DEFAULTS.biome);
   const tint = pick<"lang" | "none">("tint", ["lang", "none"], OPTION_DEFAULTS.tint);
+  // `classic` is the tree as shipped and stays the default: an unknown or absent
+  // value must never quietly redraw somebody's badge as a different plant.
+  const species = pick<SpeciesName>("species", SPECIES_NAMES, OPTION_DEFAULTS.species);
 
   // `animate=auto` is the documented default and means "let the client decide";
   // the engine takes a boolean, so the media query in the emitted CSS is what
@@ -156,5 +160,5 @@ export function parseOptions(params: URLSearchParams): ParsedOptions {
     else warnings.push(`date=${rawDate} is not a YYYY-MM-DD calendar date; using today`);
   }
 
-  return { options: { biome, theme, scale, animate, tint, locale }, date, warnings };
+  return { options: { biome, theme, scale, animate, tint, species, locale }, date, warnings };
 }

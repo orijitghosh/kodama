@@ -15,7 +15,9 @@
  * rather than trusting it.
  */
 
-import { labelsFor } from "./locale.js";
+import { fruitNoun, labelsFor } from "./locale.js";
+import { DEFAULT_SPECIES, isClassic, speciesByName } from "./species.js";
+import type { Species } from "./species.js";
 import type { PotTier, TreeFacts } from "./types.js";
 
 export interface Receipt {
@@ -54,7 +56,11 @@ function plural(n: number, one: string, many: string): string {
  * itself, then what grows on it, then what visits it, then the ground and the
  * season.
  */
-export function receiptsFor(facts: TreeFacts, locale: string): Receipt[] {
+export function receiptsFor(
+  facts: TreeFacts,
+  locale: string,
+  species: Species = speciesByName(DEFAULT_SPECIES),
+): Receipt[] {
   const labels = labelsFor(locale);
   const { ornaments, totals, streak } = facts;
   const receipts: Receipt[] = [];
@@ -68,9 +74,18 @@ export function receiptsFor(facts: TreeFacts, locale: string): Receipt[] {
   add(
     "kd-foliage",
     labels.legendFoliage,
-    `maturity ${String(facts.maturity)} of 13`,
+    isClassic(species)
+      ? `maturity ${String(facts.maturity)} of 13`
+      : `maturity ${String(facts.maturity)} of 13, drawn as a ${species.label}`,
     `${plural(totals.commits, "commit", "commits")} across the account's lifetime, summed as ` +
-      `log2(1 + commits) per active week so that a prolific year cannot flatten a quiet one.`,
+      `log2(1 + commits) per active week so that a prolific year cannot flatten a quiet one.` +
+      // A chosen plant explains itself as a choice. It changes the leaf, the
+      // autumn colour, the fruit and the flower, and none of the numbers - so the
+      // receipt says which half of the picture it is answerable for.
+      (isClassic(species)
+        ? ""
+        : ` The plant is a ${species.label}, chosen with ?species=${species.name}: it sets the ` +
+          `leaf, the autumn colour and the fruit form, and none of the counts above or below.`),
   );
 
   if (ornaments.shoots > 0) {
@@ -89,7 +104,7 @@ export function receiptsFor(facts: TreeFacts, locale: string): Receipt[] {
     add(
       "kd-fruits",
       labels.legendFruit,
-      plural(ornaments.fruit.length, "persimmon", "persimmons"),
+      `${String(ornaments.fruit.length)} ${fruitNoun(species, ornaments.fruit.length)}`,
       `${plural(totals.prsMerged, "merged pull request", "merged pull requests")} in total; the ` +
         `last ten are the ones drawn, ripening over sixty days from the merge date. ` +
         `${ripe === 0 ? "None are" : plural(ripe, "is", "are")} fully ripe.`,
@@ -138,12 +153,15 @@ export function receiptsFor(facts: TreeFacts, locale: string): Receipt[] {
   // --- what visits it ---------------------------------------------------
 
   if (ornaments.fireflies > 0) {
+    // Theme-blind by construction: `receiptsFor` takes facts and a locale, not a
+    // palette, and the same count is drawn as fireflies at night and butterflies
+    // by day. So the sentence names both rather than guessing which is on screen.
     add(
       "kd-fireflies",
       labels.legendFireflies,
-      plural(ornaments.fireflies, "firefly", "fireflies"),
+      plural(ornaments.fireflies, "mark", "marks"),
       `${plural(totals.starsReceived, "star", "stars")} across owned public repositories, as ` +
-        `3 × log10(1 + stars).`,
+        `3 × log10(1 + stars) - fireflies on the night themes, butterflies on the day ones.`,
     );
   }
 

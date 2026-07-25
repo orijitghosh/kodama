@@ -16,7 +16,7 @@ import { GitHubClient } from "../src/github/client.js";
 import { PatPool } from "../src/github/pool.js";
 import { MemoryKV } from "../src/kv/index.js";
 import { Meter } from "../src/meter.js";
-import { handleTree, SIZE_CAPS } from "../src/route.js";
+import { ENGINE_VERSION, handleTree, SIZE_CAPS } from "../src/route.js";
 import type { RouteDeps } from "../src/route.js";
 import { byteLength } from "@kodama/engine";
 import { fakeGitHub } from "./helpers/fake-github.js";
@@ -56,7 +56,7 @@ const parser = new XMLParser({ ignoreAttributes: false });
 async function expectValidSvg(response: Response, scale: keyof typeof SIZE_CAPS = "full") {
   expect(response.status).toBe(200);
   expect(response.headers.get("content-type")).toBe("image/svg+xml; charset=utf-8");
-  expect(response.headers.get("x-kodama-engine")).toBe("v1");
+  expect(response.headers.get("x-kodama-engine")).toBe(ENGINE_VERSION);
 
   const body = await response.text();
   expect(body.startsWith("<svg")).toBe(true);

@@ -9,6 +9,8 @@
  * the tree rather than the word "image".
  */
 
+import { isClassic, speciesByName, DEFAULT_SPECIES } from "./species.js";
+import type { Species } from "./species.js";
 import type { Season, TreeFacts } from "./types.js";
 
 export interface Labels {
@@ -23,6 +25,7 @@ export interface Labels {
   legendUnripe: string;
   legendBird: string;
   legendFireflies: string;
+  legendButterflies: string;
   legendChime: string;
   seasons: Record<Season, string>;
 }
@@ -39,6 +42,7 @@ const en: Labels = {
   legendUnripe: "green fruit: open pull requests",
   legendBird: "bird: issues closed",
   legendFireflies: "fireflies: stars received",
+  legendButterflies: "butterflies: stars received",
   legendChime: "wind chime: discussions",
   seasons: { spring: "spring", summer: "summer", autumn: "autumn", winter: "winter" },
 };
@@ -55,6 +59,7 @@ const ja: Labels = {
   legendUnripe: "青い実: オープンなPR",
   legendBird: "鳥: クローズした課題",
   legendFireflies: "蛍: 獲得したスター",
+  legendButterflies: "蝶: 獲得したスター",
   legendChime: "風鈴: ディスカッション",
   seasons: { spring: "春", summer: "夏", autumn: "秋", winter: "冬" },
 };
@@ -78,6 +83,18 @@ export interface Biography {
 }
 
 /**
+ * The species' fruit, as a noun the biography can use.
+ *
+ * The `FruitKind` values are already the English nouns, so this is spelling
+ * rather than a table: only the -y plural needs a rule.
+ */
+export function fruitNoun(species: Species, count: number): string {
+  const one = species.fruit;
+  if (count === 1) return one;
+  return one.endsWith("y") ? `${one.slice(0, -1)}ies` : `${one}s`;
+}
+
+/**
  * "Three-year tree, 1 247 commits, in blossom: 214-day streak".
  *
  * The biography may only name what the biome actually draws. TreeFacts computes
@@ -87,17 +104,26 @@ export interface Biography {
  * user a different tree than a sighted reader gets. Those clauses come back with
  * the elements, not before them.
  */
-export function biographyFor(facts: TreeFacts, locale: string): Biography {
+export function biographyFor(
+  facts: TreeFacts,
+  locale: string,
+  species: Species = speciesByName(DEFAULT_SPECIES),
+): Biography {
   const labels = labelsFor(locale);
   const years = Math.floor(facts.accountYears);
   const commits = facts.totals.commits;
+  const classic = isClassic(species);
 
+  // An alternate species is in the picture - leaf shape, autumn colour, fruit
+  // form, and the header line - so the spoken tree names it too. The default
+  // says "tree", exactly as it always has.
+  const plant = classic ? "tree" : species.label;
   const age =
     years < 1
       ? "A seedling"
       : years === 1
-        ? "A one-year tree"
-        : `A ${String(years)}-year tree`;
+        ? `A one-year ${plant}`
+        : `A ${String(years)}-year ${plant}`;
 
   const clauses: string[] = [`${age}, ${String(commits)} ${labels.commits}`];
 
@@ -111,7 +137,7 @@ export function biographyFor(facts: TreeFacts, locale: string): Biography {
 
   if (facts.ornaments.fruit.length > 0) {
     const count = facts.ornaments.fruit.length;
-    clauses.push(`${String(count)} ripening ${count === 1 ? "persimmon" : "persimmons"}`);
+    clauses.push(`${String(count)} ripening ${fruitNoun(species, count)}`);
   }
   if (facts.ornaments.lanterns > 0) {
     clauses.push(`${String(facts.ornaments.lanterns)} lanterns for code reviews`);
@@ -121,10 +147,15 @@ export function biographyFor(facts: TreeFacts, locale: string): Biography {
 
   const desc = [
     `A bonsai grown from the public GitHub history of ${facts.login}, drawn for ${facts.date}.`,
+    // Chosen, so it claims nothing about the account - the alternate plants are a
+    // URL option, not a reading of anybody's languages.
+    classic ? "" : `Drawn as a ${species.label}, which is a choice of the owner's.`,
     `Season: ${labels.seasons[facts.season]}.`,
     `Maturity level ${String(facts.maturity)} of 13, in a ${facts.potTier} pot.`,
     "Every element is recomputable from public history; nothing here is random or purchasable.",
-  ].join(" ");
+  ]
+    .filter((line) => line !== "")
+    .join(" ");
 
   return { title, desc };
 }

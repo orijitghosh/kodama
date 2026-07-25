@@ -124,6 +124,7 @@ export function renderSpecimen(id: SpecimenId, animate = false): string {
     // problem the taste rules exist to prevent, and a Lighthouse problem too.
     animate,
     tint: "none",
+  species: "classic",
     locale: "en",
   });
 }

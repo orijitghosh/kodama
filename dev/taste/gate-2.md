@@ -174,3 +174,29 @@ means a palette edit and a re-gate, not a patch.
 - [x] Added `engine/test/taste-gate-2.test.ts`, pinning these 24 renders the way
       `taste-gate.test.ts` pins Gate #1's. The lock attaches to the approved
       pictures, so a failure here is a re-gate request, not a bug report.
+
+---
+
+## Re-walk 2026-07-24 - butterflies (engine v2, D-041)
+
+Stars are now drawn on the day themes as butterflies, so 15 of these 24 images
+changed: every one where the account has stars. The other nine (ghost, newcomer,
+and yozakura being a night theme) were untouched.
+
+**Verdict: pass.** Owner walked the sheet and approved. Artifacts re-rendered and
+`taste-gate-2.test.ts` pins the new set.
+
+One thing changed *after* the walk and is worth recording, because it is the sort
+of note that otherwise gets lost. The owner's report was "I didn't see butterflies"
+- and they were there, eleven of them, correctly drawn. They were simply too small
+to notice at 1×: a 2.6 × 1.5 wing at 0.9 opacity in a pale rose, on washi, is about
+seven pixels of low-contrast smudge. A firefly gets away with that size because its
+glow halo doubles its footprint; a butterfly has no halo. The mark is now a 3.5 × 2
+wing at full opacity with a dark trunk-coloured body between the wings, which is
+what makes it read as an insect rather than as a fallen petal. The pinned artifacts
+are the larger version.
+
+**The lesson is about reviewing, not about butterflies:** a sheet judged at 3× is
+not a sheet judged at 1×, and this project's output is read at 1× inside a README.
+Any future gate on a small mark - the spirit, a visitor, a plaque - should be walked
+at actual size before it is walked zoomed in.

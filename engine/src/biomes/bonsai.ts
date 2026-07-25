@@ -11,6 +11,9 @@ import { BASE_X, BASE_Y, buildSkeleton } from "../skeleton.js";
 import type { Pad, Skeleton, SkeletonNode } from "../skeleton.js";
 import { seedFromLogin, streamsFor } from "../rng.js";
 import type { Rng } from "../rng.js";
+import { butterfly, leafSymbol, leafUse, speciesBlossom, speciesFruit } from "./leaves.js";
+import { isClassic } from "../species.js";
+import type { Species } from "../species.js";
 import { circle, el, group, PathBuilder, path } from "../svg.js";
 import { slot } from "../themes.js";
 import type { Theme, TreeFacts } from "../types.js";
@@ -261,17 +264,33 @@ export function buildClusters(
   });
 }
 
-export function drawFoliage(clusters: PadCluster[]): string {
+/**
+ * The crown.
+ *
+ * `classic` draws a disc per blob, exactly as it always has. An alternate species
+ * draws a `<use>` of its leaf symbol at the same footprint, so the silhouette the
+ * skeleton budgeted is untouched and only the texture changes (leaves.ts). The
+ * three-tone alternation is the original and stays either way: it is what keeps a
+ * dense crown from flattening into one mass.
+ *
+ * Below `full` even an alternate collapses back to discs. At 420×160 a five-lobe
+ * leaf is three pixels of noise, and the pads are carrying shape, not identity.
+ */
+export function drawFoliage(clusters: PadCluster[], species: Species, detail: Detail): string {
   const tones = [slot("foliage1"), slot("foliage2"), slot("foliage3")];
+  const leafy = detail === "full" && species.leaf !== null;
 
   return group(
     { class: "kd-foliage" },
     clusters.map((cluster) =>
       group(
         { class: "kd-pad" },
-        cluster.blobs.map((blob, i) =>
-          circle(blob.x, blob.y, blob.r, { fill: tones[i % tones.length]! }),
-        ),
+        cluster.blobs.map((blob, i) => {
+          const fill = tones[i % tones.length]!;
+          return leafy
+            ? leafUse(species, blob.x, blob.y, blob.r, fill)
+            : circle(blob.x, blob.y, blob.r, { fill });
+        }),
       ),
     ),
   );
@@ -364,6 +383,7 @@ function drawShoots(pads: Pad[], count: number, rng: Rng): string {
 function drawFruit(
   pads: Pad[],
   facts: TreeFacts,
+  species: Species,
   budget: number,
   detail: Detail,
   rng: Rng,
@@ -405,14 +425,27 @@ function drawFruit(
 
     // Unripe fruit reads green at every scale; only the blend is dropped.
     const ripe = detailed || fruit.ripeness >= 0.5;
-    shapes.push(circle(site.x, y, r, { fill: ripe ? slot("fruit2") : slot("foliage3") }));
+    // The species decides the form - a cone, a samara, a fig - and the grammar
+    // keeps the size, the count and the ripening (leaves.ts).
+    shapes.push(
+      speciesFruit(species.fruit, site.x, y, r, ripe ? slot("fruit2") : slot("foliage3")),
+    );
 
     if (detailed && fruit.ripeness < 1) {
+      // Ripening is an opacity, not a colour lerp: the slots are CSS variables
+      // resolving differently in light and dark, so there is no hex to
+      // interpolate.
+      //
+      // An alternate species' fruit can be more than one shape (a samara is two
+      // blades, a cherry is a pair), so its overlay is grouped to fade as one.
+      // `classic` keeps the bare circle with the opacity on it: a wrapper would be
+      // tidier and would also change the bytes of every tree already in a README,
+      // which is a worse trade than one branch here.
+      const opacity = round2(1 - fruit.ripeness);
       shapes.push(
-        circle(site.x, y, r, {
-          fill: slot("foliage3"),
-          opacity: round2(1 - fruit.ripeness),
-        }),
+        isClassic(species)
+          ? circle(site.x, y, r, { fill: slot("foliage3"), opacity })
+          : group({ opacity }, [speciesFruit(species.fruit, site.x, y, r, slot("foliage3"))]),
       );
     }
 
@@ -537,6 +570,7 @@ export function drawOrnaments(
   skeleton: Skeleton,
   facts: TreeFacts,
   theme: Theme,
+  species: Species,
   seed: number,
   detail: Detail,
 ): string {
@@ -550,7 +584,7 @@ export function drawOrnaments(
   const layers = [
     drawLanterns(pads, scale(facts.ornaments.lanterns), theme, detail, streams.for("lanterns")),
     drawUnripeFruit(pads, scale(facts.ornaments.unripeFruit), streams.for("unripe")),
-    drawFruit(pads, facts, budget, detail, streams.for("fruit")),
+    drawFruit(pads, facts, species, budget, detail, streams.for("fruit")),
     drawShoots(pads, scale(facts.ornaments.shoots), streams.for("shoots")),
   ].filter((layer) => layer !== "");
 
@@ -620,22 +654,16 @@ function perchNode(skeleton: Skeleton, preferRight: boolean): SkeletonNode | und
   return best;
 }
 
-/** A five-petal blossom. Small enough that the centre dot is what sells it. */
-function blossom(x: number, y: number, scale: number): string {
-  const petals: string[] = [];
-  for (let i = 0; i < 5; i += 1) {
-    const angle = (i / 5) * Math.PI * 2;
-    petals.push(
-      circle(
-        round2(x + Math.cos(angle) * 2.3 * scale),
-        round2(y + Math.sin(angle) * 2.3 * scale),
-        round2(2.2 * scale),
-        { fill: slot("blossom1") },
-      ),
-    );
-  }
-  petals.push(circle(round2(x), round2(y), round2(1.2 * scale), { fill: slot("blossom2") }));
-  return group({ class: "kd-blossom" }, petals);
+/**
+ * A flower, in the species' own form (leaves.ts).
+ *
+ * Five petals round a centre dot is the default and was v1's only flower; a
+ * wisteria hangs a raceme instead, an azalea opens one large bloom, a cherry
+ * comes in threes. The count is still the streak's - species changes what a
+ * flower looks like, never whether one is earned.
+ */
+function blossom(species: Species, x: number, y: number, scale: number): string {
+  return group({ class: "kd-blossom" }, speciesBlossom(species.blossom, x, y, scale));
 }
 
 /**
@@ -644,7 +672,13 @@ function blossom(x: number, y: number, scale: number): string {
  * Clusters, not a uniform dusting: a kept tree blossoms in bursts, and four
  * evenly spread flowers read as decoration rather than as a consequence.
  */
-function drawBlossoms(pads: Pad[], clusters: number, detail: Detail, rng: Rng): string {
+function drawBlossoms(
+  pads: Pad[],
+  species: Species,
+  clusters: number,
+  detail: Detail,
+  rng: Rng,
+): string {
   if (clusters === 0) return "";
   const order = padsNewestFirst(pads);
   const perCluster = detail === "full" ? 3 : 1;
@@ -655,7 +689,7 @@ function drawBlossoms(pads: Pad[], clusters: number, detail: Detail, rng: Rng): 
     if (pad === undefined) break;
     for (let j = 0; j < perCluster; j += 1) {
       const site = rimSite(pad, rng, false);
-      parts.push(blossom(site.x, site.y, detail === "full" ? 1 : 0.85));
+      parts.push(blossom(species, site.x, site.y, detail === "full" ? 1 : 0.85));
     }
   }
 
@@ -700,8 +734,16 @@ function drawFallingPetals(bounds: Bounds, count: number, rng: Rng): string {
 }
 
 /**
- * Stars, as fireflies in the air around the crown. Night themes only - a
- * firefly on washi is a smudge.
+ * Stars, as fireflies at night and butterflies by day.
+ *
+ * A firefly on washi is a smudge (D-020), so the night themes kept them and the
+ * day themes got nothing - which left `paper`, `sakura` and `shore` with no
+ * representation of stars at all. Same count, same log scale, same receipt; the
+ * mark changes with the light rather than disappearing with it.
+ *
+ * Atmosphere needs room. At compact scale the tree is under half size and a ring
+ * of dots around it reads as speckle rather than as a summer night, so this stays
+ * the one inhabitant that is full-scale only.
  */
 function drawFireflies(
   bounds: Bounds,
@@ -710,10 +752,7 @@ function drawFireflies(
   detail: Detail,
   rng: Rng,
 ): string {
-  // Atmosphere needs room. At compact scale the tree is under half size and a
-  // ring of glowing dots around it reads as speckle rather than as a summer
-  // night, so this is the one inhabitant that is full-scale only.
-  if (count === 0 || !theme.night || detail !== "full") return "";
+  if (count === 0 || detail !== "full") return "";
   const parts: string[] = [];
 
   for (let i = 0; i < count; i += 1) {
@@ -724,16 +763,20 @@ function drawFireflies(
     const x = round2(bounds.cx + Math.cos(angle) * radius);
     const y = round2(bounds.cy + Math.sin(angle) * radius * 0.8);
 
-    // The glow and the core are one firefly, so they wander together.
-    parts.push(
-      group({ class: "kd-firefly" }, [
-        circle(x, y, 3.2, { fill: slot("firefly"), opacity: 0.16 }),
-        circle(x, y, 1.1, { fill: slot("firefly"), opacity: 0.9 }),
-      ]),
-    );
+    if (theme.night) {
+      // The glow and the core are one firefly, so they wander together.
+      parts.push(
+        group({ class: "kd-firefly" }, [
+          circle(x, y, 3.2, { fill: slot("firefly"), opacity: 0.16 }),
+          circle(x, y, 1.1, { fill: slot("firefly"), opacity: 0.9 }),
+        ]),
+      );
+    } else {
+      parts.push(butterfly(x, y));
+    }
   }
 
-  return group({ class: "kd-fireflies" }, parts);
+  return group({ class: theme.night ? "kd-fireflies" : "kd-butterflies" }, parts);
 }
 
 /**
@@ -966,7 +1009,13 @@ function drawFallingSnow(bounds: Bounds, rng: Rng): string {
  * user's work, and it is deliberate - the whole point of hanami is that it
  * arrives for everyone. A dormant account and a whale get the same week.
  */
-function drawHanami(pads: Pad[], bounds: Bounds, detail: Detail, rng: Rng): string {
+function drawHanami(
+  pads: Pad[],
+  species: Species,
+  bounds: Bounds,
+  detail: Detail,
+  rng: Rng,
+): string {
   const parts: string[] = [];
   const order = padsNewestFirst(pads);
   const flowers = detail === "full" ? Math.min(10, order.length) : 4;
@@ -975,7 +1024,9 @@ function drawHanami(pads: Pad[], bounds: Bounds, detail: Detail, rng: Rng): stri
     const pad = padCycle(order, i);
     if (pad === undefined) break;
     const site = rimSite(pad, rng, false);
-    parts.push(blossom(site.x, site.y, 1));
+    // Hanami blossoms in the species' own flower: a wisteria's April is a week
+    // of racemes, not of cherry discs.
+    parts.push(blossom(species, site.x, site.y, 1));
   }
 
   if (detail === "full") {
@@ -1071,6 +1122,7 @@ export function drawSeasonal(
   skeleton: Skeleton,
   clusters: PadCluster[],
   facts: TreeFacts,
+  species: Species,
   seed: number,
   detail: Detail,
 ): string {
@@ -1085,7 +1137,13 @@ export function drawSeasonal(
       ? drawFallingSnow(bounds, streams.for("snowfall"))
       : "",
     hasEvent(facts, "hanami")
-      ? drawHanami(skeleton.pads, bounds, detail, streams.for("hanami"))
+      ? drawHanami(
+          skeleton.pads,
+          species,
+          bounds,
+          detail,
+          streams.for("hanami"),
+        )
       : "",
     hasEvent(facts, "harvest") ? drawHarvest(facts, detail, streams.for("harvest")) : "",
   ].filter((layer) => layer !== "");
@@ -1103,6 +1161,7 @@ export function drawInhabitants(
   skeleton: Skeleton,
   facts: TreeFacts,
   theme: Theme,
+  species: Species,
   seed: number,
   detail: Detail,
 ): string {
@@ -1117,7 +1176,13 @@ export function drawInhabitants(
 
   const layers = [
     drawFireflies(bounds, ornaments.fireflies, theme, detail, streams.for("fireflies")),
-    drawBlossoms(pads, scale(ornaments.blossomClusters), detail, streams.for("blossoms")),
+    drawBlossoms(
+      pads,
+      species,
+      scale(ornaments.blossomClusters),
+      detail,
+      streams.for("blossoms"),
+    ),
     drawFallingPetals(bounds, scale(ornaments.fallingPetals), streams.for("petals")),
     ornaments.windChime && detail === "full" ? drawWindChime(skeleton) : "",
     ornaments.bird === "none" ? "" : drawBird(skeleton, ornaments.bird),
@@ -1206,7 +1271,12 @@ function drawGlyph(facts: TreeFacts): string {
 }
 
 /** Draws the whole plant: substrate behind, masses in front. */
-export function drawBonsai(facts: TreeFacts, theme: Theme, detail: Detail = "full"): BonsaiTree {
+export function drawBonsai(
+  facts: TreeFacts,
+  theme: Theme,
+  species: Species,
+  detail: Detail = "full",
+): BonsaiTree {
   const seed = seedFromLogin(facts.login);
   const skeleton = buildSkeleton(seed, facts.maturity);
 
@@ -1219,14 +1289,18 @@ export function drawBonsai(facts: TreeFacts, theme: Theme, detail: Detail = "ful
   const clusters = buildClusters(skeleton, facts, seed, detail);
 
   const layers = [
+    // One definition per document, referenced by every blob in the crown. Only
+    // where the tufts are actually drawn: an unreferenced symbol is dead bytes,
+    // and `classic` never references one at all.
+    detail === "full" && species.leaf !== null ? el("defs", {}, leafSymbol(species)) : "",
     drawSubstrate(facts),
     drawBranches(skeleton, facts, detail),
-    drawFoliage(clusters),
-    drawOrnaments(skeleton, facts, theme, seed, detail),
-    drawInhabitants(skeleton, facts, theme, seed, detail),
+    drawFoliage(clusters, species, detail),
+    drawOrnaments(skeleton, facts, theme, species, seed, detail),
+    drawInhabitants(skeleton, facts, theme, species, seed, detail),
     // Last: snow settles on top of everything, and the calendar has the final
     // word on what the tree looks like today.
-    drawSeasonal(skeleton, clusters, facts, seed, detail),
+    drawSeasonal(skeleton, clusters, facts, species, seed, detail),
   ].filter((layer) => layer !== "");
 
   return { svg: group({ class: "kd-tree" }, layers), skeleton };
