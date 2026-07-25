@@ -326,16 +326,22 @@ async function historyFor(
     return null;
   }
 
+  // Fanned out rather than sequential. A decade-old account is fifteen year
+  // windows, and at ~700 ms each that is a quarter minute per account with
+  // nothing on screen - the first run of this script looked hung for three
+  // minutes and was simply working. The fetcher fans out for the same reason
+  // (SPIKE-GRAPHQL measured it), and the windows are independent.
   const createdAt = parsed.data.user.createdAt.slice(0, 10);
-  const years: unknown[] = [];
-  for (const window of yearWindows(createdAt, today())) {
-    const year = await gql(token, YEAR_QUERY, { login, from: window.from, to: window.to });
-    if (year.errors !== undefined) {
-      console.warn(`  ${login}: year ${window.from.slice(0, 10)} failed`);
-      return null;
-    }
-    years.push(payload(year.data));
+  const windows = yearWindows(createdAt, today());
+  const responses = await Promise.all(
+    windows.map((window) => gql(token, YEAR_QUERY, { login, from: window.from, to: window.to })),
+  );
+  const failed = responses.findIndex((year) => year.errors !== undefined);
+  if (failed >= 0) {
+    console.warn(`  ${login}: year ${windows[failed]!.from.slice(0, 10)} failed`);
+    return null;
   }
+  const years = responses.map((year) => payload(year.data));
 
   try {
     const history = normalize({
@@ -616,6 +622,11 @@ async function main(): Promise<void> {
 
   const rows: Row[] = [];
   const date = today();
+  const started = Date.now();
+
+  // A line per account, printed as each one lands. Anything coarser reads as a
+  // hung process: an account is one profile query plus a year window per year of
+  // its life, so a single old account can take twenty seconds on its own.
   for (const [i, login] of logins.entries()) {
     if (remaining < BUDGET_FLOOR) {
       console.warn(
@@ -624,14 +635,24 @@ async function main(): Promise<void> {
       );
       break;
     }
+    const at = Date.now();
     const history = await historyFor(tokens[i % tokens.length]!, login, !args.noCache);
     if (history === null) continue;
 
     const facts = treeFacts(history, date);
-    rows.push({ form: selectForm({ facts, repoMix: history.repoMix }), facts, history });
-    if ((i + 1) % 10 === 0) {
-      console.log(`  ${String(i + 1)}/${String(logins.length)} (${String(remaining)} points left)`);
-    }
+    const form = selectForm({ facts, repoMix: history.repoMix });
+    rows.push({ form, facts, history });
+
+    // The login is printed to the console and never to the report - watching a
+    // long run needs to know where it is, a committed artifact does not (D-043).
+    const done = i + 1;
+    const perAccount = (Date.now() - started) / done;
+    const left = Math.round(((logins.length - done) * perAccount) / 1000);
+    console.log(
+      `  ${String(done)}/${String(logins.length)} ${login} -> ${form} ` +
+        `(${String(Math.round((Date.now() - at) / 100) / 10)}s, ` +
+        `${Number.isFinite(remaining) ? String(remaining) : "?"} points, ~${String(left)}s left)`,
+    );
   }
 
   if (rows.length === 0) {
