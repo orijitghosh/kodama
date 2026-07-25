@@ -36,7 +36,7 @@ tree's [receipts](https://kodama-sigma.vercel.app/tree/YOUR_USERNAME) list the e
 | Open pull requests | Unripe green fruit |
 | Code reviews | Paper lanterns, lit in the night themes |
 | Issues closed | A bird perched at volume |
-| Stars received | Fireflies at dusk (log-scaled - whales don't white out) |
+| Stars received | Fireflies on the night themes, butterflies on the day ones (log-scaled - whales don't white out) |
 | Discussions answered | A wind chime |
 | Current streak | Blossom clusters (a break drops petals for a week - the tree is never harmed) |
 | Longest-ever streak | A faint ring of petals pressed into the soil, permanently |
@@ -56,9 +56,17 @@ https://kodama-sigma.vercel.app/<user>.svg
   &scale=full|compact|strip|button              830×420 · 420×160 · 830×90 · 88×31
   &animate=auto|off                             auto respects prefers-reduced-motion
   &tint=lang|none                               tint the foliage by top language
+  &species=classic|momiji|ginkgo|sakura|fuji    which plant to draw; default is the original bonsai
   &lang=en|ja|...                               language of the labels and alt-text (locale= also works)
   &date=YYYY-MM-DD                              draw a past day instead of today
 ```
+
+`species` is the one parameter that changes what kind of plant it is - Japanese
+maple, ginkgo, cherry or wisteria instead of the original. It sets the leaf, the
+autumn colour, the fruit and the flower, and it cannot touch a single number: the
+pads, the ornaments and the counts are the same tree either way. It is a choice, so
+it claims nothing about you - unlike everything in the table above, which is read
+off your public history.
 
 `date` moves the calendar the tree is judged against, not the history behind it:
 the counts are still today's, read as of the day you name. A future date is
