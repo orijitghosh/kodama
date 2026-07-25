@@ -119,7 +119,17 @@ export function drawSubstrate(facts: TreeFacts): string {
  */
 export function drawBranches(skeleton: Skeleton, facts: TreeFacts, detail: Detail): string {
   const { nodes } = skeleton;
-  const rootWeight = nodes[0]?.weight ?? 1;
+
+  // Widths are measured against the heaviest trunk, not against node 0 and not
+  // against the sum. A multi-trunk skeleton has a root at each trunk's base, and
+  // measuring every stem against its own root would draw four full-girth trunks;
+  // measuring against the sum would thin the main stem as trunks were added.
+  // Taking the maximum keeps girth reading as account age on the dominant trunk
+  // and makes the lesser stems proportionally thinner, which is what a clump is.
+  let rootWeight = 1;
+  for (const node of nodes) {
+    if (node.parent < 0 && node.weight > rootWeight) rootWeight = node.weight;
+  }
 
   // Below these stroke widths a branch contributes bytes but no visible line
   // at the target size.
@@ -151,6 +161,10 @@ export function drawBranches(skeleton: Skeleton, facts: TreeFacts, detail: Detai
 
   for (let i = 1; i < nodes.length; i += 1) {
     const node = nodes[i]!;
+    // A second or third trunk's root has no parent to draw a segment back to.
+    // Without this the path would carry NaN, which is a broken image, which the
+    // product forbids outright.
+    if (node.parent < 0) continue;
     const parent = nodes[node.parent]!;
     const share = node.weight / rootWeight;
     const width = Math.max(1, facts.trunkGirth * Math.sqrt(share));

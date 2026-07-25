@@ -51,6 +51,15 @@ export const ATTRACTORS_PER_LEVEL = 20;
  */
 const CROWN_CEIL = 112;
 
+/**
+ * The whole skeleton's node budget, shared across however many trunks there are.
+ *
+ * Exported because it is the byte cost of the picture: branch strokes are the
+ * most expensive thing in the document, and the trunk-plan properties assert
+ * against this rather than against a number copied into the test.
+ */
+export const MAX_SKELETON_NODES = 420;
+
 const GROWTH = {
   /** How far a node reaches per iteration. */
   step: 9,
@@ -59,7 +68,7 @@ const GROWTH = {
   /** Attractors closer than this to any node are satisfied and removed. */
   kill: 15,
   maxIterations: 220,
-  maxNodes: 420,
+  maxNodes: MAX_SKELETON_NODES,
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -92,6 +101,38 @@ export interface Skeleton {
   nodes: SkeletonNode[];
   pads: Pad[];
   maturity: number;
+}
+
+/**
+ * One trunk rising from the soil (SPEC-ENGINE §3.3, D-042).
+ *
+ * Twin trunk, clump, forest and raft are all the same primitive: N roots seeded
+ * along the soil line, each colonising its own share of the one attractor cloud.
+ * A plan says where a trunk starts and how far up it goes; everything else about
+ * it is the same growth the single trunk has always used.
+ */
+export interface TrunkPlan {
+  /** Horizontal offset of this trunk's base from `BASE_X`, in px. */
+  dx: number;
+  /**
+   * How far into the crown this trunk reaches, as a fraction of the main
+   * trunk's. 1 is full height; a twin trunk's second stem is around 0.6.
+   */
+  reach: number;
+}
+
+/**
+ * The tree as it has always been drawn, and the default.
+ *
+ * Byte-identity for the default output is not negotiable (D-042), so this exact
+ * plan takes the untransformed path below rather than a transform that happens
+ * to be the identity - `BASE_X + (x - BASE_X)` is not always bit-identical to
+ * `x`, and one changed digit is a changed tree in every README.
+ */
+export const SINGLE_TRUNK: readonly TrunkPlan[] = [{ dx: 0, reach: 1 }];
+
+function isUntransformed(trunk: TrunkPlan): boolean {
+  return trunk.dx === 0 && trunk.reach === 1;
 }
 
 interface Vec {
@@ -200,11 +241,11 @@ function growTrunk(nodes: SkeletonNode[], attractors: Vec[], rng: Rng): void {
   }
 }
 
-function colonize(nodes: SkeletonNode[], attractors: Vec[]): void {
+function colonize(nodes: SkeletonNode[], attractors: Vec[], nodeCap: number): void {
   const live = attractors.slice();
 
   for (let iteration = 0; iteration < GROWTH.maxIterations; iteration += 1) {
-    if (live.length === 0 || nodes.length >= GROWTH.maxNodes) break;
+    if (live.length === 0 || nodes.length >= nodeCap) break;
 
     // Each attractor pulls on its single nearest node within the influence
     // radius; a node's direction is the sum of its pulls.
@@ -238,7 +279,7 @@ function colonize(nodes: SkeletonNode[], attractors: Vec[]): void {
     const growing = [...pulls.keys()].sort((a, b) => a - b);
     const firstNewNode = nodes.length;
     for (const index of growing) {
-      if (nodes.length >= GROWTH.maxNodes) break;
+      if (nodes.length >= nodeCap) break;
       const node = nodes[index]!;
       const pull = pulls.get(index)!;
       const length = Math.hypot(pull.x, pull.y) || 1;
@@ -267,10 +308,17 @@ function colonize(nodes: SkeletonNode[], attractors: Vec[]): void {
   }
 }
 
-/** Subtree sizes, which set branch thickness: thick where much hangs off it. */
+/**
+ * Subtree sizes, which set branch thickness: thick where much hangs off it.
+ *
+ * The `parent < 0` skip is what makes this safe for more than one trunk: every
+ * root carries -1, and a multi-trunk skeleton has one at each trunk's base
+ * rather than only at index 0.
+ */
 function computeWeights(nodes: SkeletonNode[]): void {
   for (let i = nodes.length - 1; i > 0; i -= 1) {
     const node = nodes[i]!;
+    if (node.parent < 0) continue;
     const parent = nodes[node.parent]!;
     parent.weight += node.weight;
   }
@@ -396,8 +444,64 @@ function buildPads(nodes: SkeletonNode[], padCount: number): Pad[] {
 // Public entry point
 // ---------------------------------------------------------------------------
 
-/** Builds the skeleton for a (seed, maturity) pair. Always identical for that pair. */
-export function buildSkeleton(seed: number, maturity: number): Skeleton {
+/**
+ * Splits the cloud between trunks: each attractor goes to the trunk whose base
+ * is nearest in x, ties to the earlier trunk.
+ *
+ * Nearest-in-x rather than nearest overall because trunks differ horizontally
+ * and share the soil line - measuring in both axes would hand the whole lower
+ * crown to whichever trunk happened to be shortest. The result is that each
+ * trunk owns a vertical slab of the crown, which is what a clump actually looks
+ * like: stems fanning out, each carrying its own side of the foliage.
+ */
+function partition(attractors: Vec[], trunks: readonly TrunkPlan[]): Vec[][] {
+  const shares: Vec[][] = trunks.map(() => []);
+  if (trunks.length === 1) {
+    // No comparison to make, and no new array of points: the single-trunk path
+    // must reach growth with exactly the objects it always did.
+    shares[0] = attractors;
+    return shares;
+  }
+
+  for (const attractor of attractors) {
+    let best = 0;
+    let bestDistance = Infinity;
+    for (let i = 0; i < trunks.length; i += 1) {
+      const d = Math.abs(attractor.x - (BASE_X + trunks[i]!.dx));
+      if (d < bestDistance) {
+        bestDistance = d;
+        best = i;
+      }
+    }
+    shares[best]!.push(attractor);
+  }
+  return shares;
+}
+
+/** A trunk's share, pulled in toward its own base so `reach` shortens it. */
+function shorten(share: Vec[], trunk: TrunkPlan): Vec[] {
+  if (isUntransformed(trunk)) return share;
+  const bx = BASE_X + trunk.dx;
+  return share.map((point) => ({
+    x: bx + (point.x - BASE_X) * trunk.reach,
+    y: BASE_Y + (point.y - BASE_Y) * trunk.reach,
+  }));
+}
+
+/**
+ * Builds the skeleton for a (seed, maturity) pair, optionally on more than one
+ * trunk. Always identical for the same arguments.
+ *
+ * With the default plan this is the tree as it has always been drawn, node for
+ * node - the goldens and Taste Gate #1 are what prove it, and they are expected
+ * to keep passing through every form commit that does not deliberately restyle a
+ * fixture (D-042).
+ */
+export function buildSkeleton(
+  seed: number,
+  maturity: number,
+  trunks: readonly TrunkPlan[] = SINGLE_TRUNK,
+): Skeleton {
   const cloud = attractorCloud(seed);
   const prefix = cloud.slice(0, Math.max(1, ATTRACTORS_PER_LEVEL * maturity));
 
@@ -426,12 +530,40 @@ export function buildSkeleton(seed: number, maturity: number): Skeleton {
   }
   const rng = streamsFor(seed).for("trunk");
 
-  const nodes: SkeletonNode[] = [
-    { x: BASE_X, y: BASE_Y, parent: -1, weight: 1, depth: 0 },
-  ];
+  // The node budget is shared, not per trunk. Branch strokes are the most
+  // expensive thing in the document, so four trunks each free to grow 420 nodes
+  // would put a whale straight through the 60 KB cap. One trunk still gets the
+  // whole 420, which is the other half of keeping the default identical.
+  const nodeCap = Math.max(1, Math.ceil(GROWTH.maxNodes / trunks.length));
+  const shares = partition(attractors, trunks);
 
-  growTrunk(nodes, attractors, rng);
-  colonize(nodes, attractors);
+  const nodes: SkeletonNode[] = [];
+  for (let i = 0; i < trunks.length; i += 1) {
+    const trunk = trunks[i]!;
+    const share = shorten(shares[i]!, trunk);
+
+    // Each trunk grows in its own array and is spliced in afterwards, so one
+    // trunk's tips can never be pulled toward another's attractors. Sharing the
+    // array would have them competing and merging into one crown, which is the
+    // opposite of what a twin trunk is.
+    const branch: SkeletonNode[] = [
+      { x: BASE_X + trunk.dx, y: BASE_Y, parent: -1, weight: 1, depth: 0 },
+    ];
+
+    // A trunk that won its share of nothing stays a stub at the soil rather
+    // than growing 40 steps of bare pole toward a crown it has no claim on.
+    // Only reachable from a plan whose trunks sit outside the crown entirely.
+    if (share.length > 0) {
+      growTrunk(branch, share, rng);
+      colonize(branch, share, nodeCap);
+    }
+
+    const offset = nodes.length;
+    for (const node of branch) {
+      nodes.push(node.parent < 0 ? node : { ...node, parent: node.parent + offset });
+    }
+  }
+
   computeWeights(nodes);
 
   return { nodes, pads: buildPads(nodes, padCountFor(maturity)), maturity };
