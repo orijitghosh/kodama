@@ -67,6 +67,22 @@ export {
   dormancyHistory,
   langCount15,
 } from "./facts.js";
+/**
+ * Form selection (D-042). Exported before anything draws from it, because the
+ * calibration harness in the service is what gates the thresholds shipping at
+ * all (PROPOSAL-VARIETALS §7.6, D-043).
+ */
+export {
+  DEFAULT_FORM,
+  FORM_LADDER,
+  FORM_MIN_MATURITY,
+  FORM_NAMES,
+  FORM_THRESHOLDS,
+  mayRestyle,
+  selectForm,
+} from "./form.js";
+export type { FormInput, FormName, FormRung } from "./form.js";
+
 export { receiptsFor } from "./receipts.js";
 export type { Receipt } from "./receipts.js";
 export { render, SCALE_SIZES } from "./render.js";

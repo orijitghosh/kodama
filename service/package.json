@@ -23,7 +23,8 @@
     "test:watch": "vitest",
     "spike:graphql": "tsx scripts/spike-graphql.ts",
     "spike:profile": "tsx scripts/spike-profile-cost.ts",
-    "probe": "tsx scripts/probe.ts"
+    "probe": "tsx scripts/probe.ts",
+    "calibrate": "tsx scripts/calibrate.ts"
   },
   "dependencies": {
     "@kodama/engine": "workspace:*",
