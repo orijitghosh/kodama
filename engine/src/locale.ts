@@ -77,7 +77,16 @@ export interface Biography {
   desc: string;
 }
 
-/** "Three-year tree, 1 247 commits, in blossom: 214-day streak". */
+/**
+ * "Three-year tree, 1 247 commits, in blossom: 214-day streak".
+ *
+ * The biography may only name what the biome actually draws. TreeFacts computes
+ * more than the bonsai currently renders - plaques, visitors, the spirit and
+ * weather are all decided in facts.ts and drawn nowhere yet (M7) - and a `desc`
+ * that lists a plaque on a pot rim with no plaque on it hands a screen-reader
+ * user a different tree than a sighted reader gets. Those clauses come back with
+ * the elements, not before them.
+ */
 export function biographyFor(facts: TreeFacts, locale: string): Biography {
   const labels = labelsFor(locale);
   const years = Math.floor(facts.accountYears);
@@ -112,15 +121,10 @@ export function biographyFor(facts: TreeFacts, locale: string): Biography {
 
   const desc = [
     `A bonsai grown from the public GitHub history of ${facts.login}, drawn for ${facts.date}.`,
-    `Season: ${labels.seasons[facts.season]}. Weather: ${facts.weather}.`,
+    `Season: ${labels.seasons[facts.season]}.`,
     `Maturity level ${String(facts.maturity)} of 13, in a ${facts.potTier} pot.`,
-    facts.plaques.length > 0
-      ? `Plaques on the pot rim: ${facts.plaques.map((p) => p.kind).join(", ")}.`
-      : "",
     "Every element is recomputable from public history; nothing here is random or purchasable.",
-  ]
-    .filter((line) => line !== "")
-    .join(" ");
+  ].join(" ");
 
   return { title, desc };
 }

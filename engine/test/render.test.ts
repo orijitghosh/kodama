@@ -384,6 +384,19 @@ describe("accessibility", () => {
     expect(biography.title).not.toMatch(/dead|dying|failed|lost/i);
   });
 
+  it("speaks only of elements the biome draws", () => {
+    // TreeFacts decides plaques, visitors, the spirit and weather; the bonsai
+    // draws none of them yet (M7). Until it does, naming them in the biography
+    // would describe a tree only the screen-reader user is told about.
+    const facts = treeFacts(loadFixture("veteran"), DATE);
+    expect(facts.plaques.length, "the veteran is the fixture with plaques").toBeGreaterThan(0);
+
+    const { title, desc } = biographyFor(facts, "en");
+    for (const spoken of [title, desc]) {
+      expect(spoken).not.toMatch(/plaque|weather|spirit|fox|koi|crane/i);
+    }
+  });
+
   it("states that the tree is recomputable", () => {
     const biography = biographyFor(treeFacts(loadFixture("whale"), DATE), "en");
     expect(biography.desc).toMatch(/recomputable/);

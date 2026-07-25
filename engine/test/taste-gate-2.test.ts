@@ -7,6 +7,7 @@ import { render } from "../src/render.js";
 import type { RenderOptions, ThemeName } from "../src/types.js";
 
 import { GALLERY_FIXTURES, loadFixture } from "./helpers/fixtures.js";
+import { withoutSpokenText } from "./helpers/gate.js";
 
 /**
  * Gate #2 is binding the same way Gate #1 is (TASTE §5): 24 images - the four
@@ -70,9 +71,9 @@ describe("taste gate #2 artifacts", () => {
     });
 
     expect(
-      current,
+      withoutSpokenText(current),
       "the drawing has changed since taste gate #2 approved it - re-render " +
         "dev/taste/gate-2/ and re-run TASTE §5 rather than editing this test",
-    ).toBe(approved);
+    ).toBe(withoutSpokenText(approved));
   });
 });

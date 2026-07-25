@@ -59,6 +59,9 @@ export default tseslint.config(
       "**/golden/**",
       "**/coverage/**",
       "**/debug/**",
+      // Gitignored scratch: throwaway scripts live here, and a file CI never
+      // sees must not be able to fail the lint gate locally.
+      "**/tmp/**",
     ],
   },
   js.configs.recommended,

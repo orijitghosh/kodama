@@ -7,6 +7,7 @@ import { render } from "../src/render.js";
 import type { RenderOptions, ThemeName } from "../src/types.js";
 
 import { GALLERY_FIXTURES, loadFixture } from "./helpers/fixtures.js";
+import { withoutSpokenText } from "./helpers/gate.js";
 
 /**
  * Gate #1 is binding (TASTE §5): twelve images, reviewed one by one, with
@@ -46,9 +47,12 @@ const GATE_OPTIONS: Omit<RenderOptions, "theme"> = {
   locale: "en",
 };
 
-/** Strips the per-firefly group the animation layer added after the gate. */
+/**
+ * Strips the per-firefly group the animation layer added after the gate, and the
+ * spoken biography the gate never saw (helpers/gate.ts).
+ */
 function asGated(svg: string): string {
-  return svg.replace(/<g class="kd-firefly">(.*?)<\/g>/g, "$1");
+  return withoutSpokenText(svg.replace(/<g class="kd-firefly">(.*?)<\/g>/g, "$1"));
 }
 
 const cases = GALLERY_FIXTURES.flatMap((fixture) =>
@@ -76,6 +80,6 @@ describe("taste gate #1 artifacts", () => {
       asGated(current),
       "the drawing has changed since the taste gate approved it - re-render " +
         "dev/taste/gate-1/ and re-run TASTE §5 rather than editing this test",
-    ).toBe(approved);
+    ).toBe(asGated(approved));
   });
 });
