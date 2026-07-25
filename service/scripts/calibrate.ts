@@ -9,7 +9,7 @@
  * what that means: they are unfalsifiable until somebody runs the ladder over
  * real accounts and looks at the histogram. This is that run. Acceptance:
  *
- *   1. No style above 35% of the accounts that clear the maturity floor.
+ *   1. No style above 35% of the accounts that clear the evidence floor.
  *   2. No style below 2% of them.
  *   3. The three archetypes the PRD names - maintainer, grinder, newcomer - land
  *      on visibly different styles.
@@ -42,7 +42,7 @@ import { fileURLToPath } from "node:url";
 import {
   DEFAULT_FORM,
   FORM_LADDER,
-  FORM_MIN_MATURITY,
+  FORM_MIN_ACTIVE_WEEKS,
   FORM_NAMES,
   selectForm,
   treeFacts,
@@ -60,7 +60,7 @@ const REPO_DIR = join(PKG_DIR, "..");
 const OUT_DIR = join(REPO_DIR, "dev", "calibration");
 const CACHE_DIR = join(OUT_DIR, "cache");
 
-/** §7.6's acceptance band, over accounts at or above the maturity floor. */
+/** §7.6's acceptance band, over accounts at or above the evidence floor. */
 const MAX_SHARE = 0.35;
 const MIN_SHARE = 0.02;
 
@@ -490,7 +490,7 @@ function histogram(rows: Row[]): Map<FormName, number> {
 }
 
 /**
- * The style an account would get with the maturity floor removed.
+ * The style an account would get with the evidence floor removed.
  *
  * The floor is the one threshold a histogram cannot argue about on its own: every
  * account under it lands on `kokedama` and its signals never reach a rung, so the
@@ -522,7 +522,7 @@ function report(rows: Row[], corpusNote: string): string {
     out.push(line);
   };
 
-  const styled = rows.filter((row) => row.facts.maturity >= FORM_MIN_MATURITY);
+  const styled = rows.filter((row) => row.facts.signals.activeWeeks >= FORM_MIN_ACTIVE_WEEKS);
   const counts = histogram(rows);
   const demand = rungDemand(rows);
   const denom = styled.length;
@@ -531,7 +531,8 @@ function report(rows: Row[], corpusNote: string): string {
   write();
   write(`Corpus: **${String(rows.length)} accounts** (${corpusNote}).`);
   write(
-    `Of those, **${String(denom)}** clear the maturity floor of ${String(FORM_MIN_MATURITY)} ` +
+    `Of those, **${String(denom)}** clear the evidence floor of ` +
+      `${String(FORM_MIN_ACTIVE_WEEKS)} active weeks ` +
       `and can hold a style at all; the rest are moss balls by definition, ` +
       `and the acceptance band below is measured over the ${String(denom)}.`,
   );
@@ -586,7 +587,7 @@ function report(rows: Row[], corpusNote: string): string {
   if (youngShare < 0.1) {
     failures.push(
       `only ${(youngShare * 100).toFixed(1)}% of the corpus is under three years old; ` +
-        "the maturity floor and the seedling display are unmeasurable at that mix",
+        "the evidence floor and the seedling display are unmeasurable at that mix",
     );
   }
   for (const [form, count] of counts) {
@@ -616,14 +617,15 @@ function report(rows: Row[], corpusNote: string): string {
   write();
   write(
     "The archetype criterion - maintainer / grinder / newcomer visibly different - " +
-      "is asserted in `engine/test/form.test.ts` against the fixtures, and currently " +
-      "records a known miss: the grinder fixture is maturity 4 and so falls under the " +
-      "floor alongside the newcomer. Decide the floor here, with the numbers below.",
+      "is asserted in `engine/test/form.test.ts` against the fixtures. It was failing " +
+      "until the floor moved off maturity and onto active weeks (D-044): the grinder " +
+      "has two years of the steadiest cadence in the fixture set and was getting the " +
+      "same moss ball as an account three weeks old.",
   );
   write();
 
   // -- where the floor should sit ----------------------------------------
-  write("## Where the maturity floor should sit");
+  write("## Where the evidence floor should sit");
   write();
   write("The one threshold the histogram above cannot argue about, because every account");
   write("under it is a moss ball by construction. Two questions, and the second is the one");
@@ -648,7 +650,7 @@ function report(rows: Row[], corpusNote: string): string {
   }
   write();
 
-  const under = rows.filter((row) => row.facts.maturity < FORM_MIN_MATURITY);
+  const under = rows.filter((row) => row.facts.signals.activeWeeks < FORM_MIN_ACTIVE_WEEKS);
   if (under.length > 0) {
     write(
       `The **${String(under.length)}** accounts currently under the floor would distribute ` +

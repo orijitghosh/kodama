@@ -75,7 +75,7 @@ export {
 export {
   DEFAULT_FORM,
   FORM_LADDER,
-  FORM_MIN_MATURITY,
+  FORM_MIN_ACTIVE_WEEKS,
   FORM_NAMES,
   FORM_THRESHOLDS,
   mayRestyle,

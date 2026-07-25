@@ -27,7 +27,7 @@
  */
 
 import { daysBetween } from "./date.js";
-import { DORMANCY_SPELL_DAYS, MAX_MATURITY } from "./facts.js";
+import { MAX_MATURITY } from "./facts.js";
 import type { RepoMix, TreeFacts } from "./types.js";
 
 /**
@@ -42,24 +42,24 @@ export const FORM_NAMES = [
   "ikadabuki",
   /** Forest - graded trees in one tray. Spread across communities. */
   "yoseUe",
-  /** Clump - trunks from one root mass. Genuine polyglot. */
-  "kabudachi",
-  /** Twin trunk. Two worlds. */
-  "sokan",
   /** Literati - tall, thin, foliage at the apex. Wrote one thing everyone uses. */
   "bunjin",
   /** Root over rock. One long-lived project, and the stone is that project. */
   "sekijoju",
-  /** Deadwood - a bleached vein beside a live one. Survived something. */
-  "sharimiki",
+  /** Clump - trunks from one root mass. Genuine polyglot. */
+  "kabudachi",
+  /** Twin trunk. Two worlds. */
+  "sokan",
+  /** Formal upright. The metronome. */
+  "chokkan",
+  /** Broom - a fan splitting off one trunk. Even, wide contributor. */
+  "hokidachi",
   /** Exposed root. Long history, quiet now. */
   "neagari",
   /** Windswept. Pulled away by life. */
   "fukinagashi",
-  /** Broom - a fan splitting off one trunk. Even, wide contributor. */
-  "hokidachi",
-  /** Formal upright. The metronome. */
-  "chokkan",
+  /** Deadwood - a bleached vein beside a live one. Survived something. */
+  "sharimiki",
   /** Slant. One big codebase. */
   "shakan",
   /** Informal upright - today's tree, and the fallback. */
@@ -72,64 +72,110 @@ export type FormName = (typeof FORM_NAMES)[number];
 export const DEFAULT_FORM: FormName = "moyogi";
 
 /**
- * Below this maturity nobody gets a style claim.
+ * Below this much *evidence*, nobody gets a style claim.
  *
- * A level-3 account has a handful of weeks of history; calling it a metronome or
- * a polyglot on that evidence is a guess dressed as a measurement. Seedlings get
- * the moss ball, which says "just planted" and is honest.
+ * This was a maturity floor of 5 until the corpus was measured, and it was wrong
+ * by a lot: 58% of real accounts fell under it, and those accounts had a median
+ * of 91 active weeks - nearly two years of work - distributed across nine
+ * different styles once the ladder was allowed to read them (D-044).
+ *
+ * The cause is that maturity is a *volume* ladder - 400 growth units a level,
+ * roughly four years of steady commits to reach level 5 - so it answers "how
+ * much", while a floor needs to ask "how much do we know". `activeWeeks` asks
+ * that directly. One year of weeks that actually had something in them, after
+ * which 83% of the measured corpus can hold a style and a seedling is a
+ * genuinely new account rather than anybody who is not a whale.
  */
-export const FORM_MIN_MATURITY = 5;
+export const FORM_MIN_ACTIVE_WEEKS = 52;
 
 /**
  * Every number the ladder compares against, in one place.
  *
- * **These are guesses.** PROPOSAL-VARIETALS §3 labels them as such and §7.6 makes
- * calibration a gate on shipping them. `service/scripts/calibrate.ts` is what
- * turns them into measured values; until it has run against a corpus and passed,
- * treat any distribution this produces as unknown.
+ * **Measured, not authored** - as of the 2026-07-25 calibration run over 159
+ * accounts, 132 of them styled (D-044). Each one is placed where it puts its rung
+ * inside §7.6's 2-35% band, and the run is replayable at any time with
+ * `pnpm --filter @kodama/api calibrate -- --from-cache`.
+ *
+ * Placed against a sample, though, and the sample is GitHub user search, which
+ * ranks by popularity. The rungs resting on four or five accounts - stone,
+ * exposed root, slant - are placements rather than measurements, and a curated
+ * corpus moving them is expected rather than a regression.
  */
 export const FORM_THRESHOLDS = {
   /** ikadabuki: mostly other people's repositories, and many of them. */
   raftOwnShare: 0.25,
-  raftBreadth: 8,
-  /** yoseUe: many owners, many repos, no centre of gravity. */
-  forestOrgs: 4,
-  forestHhi: 0.12,
-  forestBreadth: 20,
+  raftBreadth: 12,
+  /**
+   * yoseUe: many owners, many repos, no centre of gravity. Every one of these is
+   * far past where the first draft guessed - corpus median breadth is 26 repos
+   * and median hhi 0.13, so "scattered across twenty repos" describes half of
+   * GitHub rather than a forest.
+   */
+  forestOrgs: 8,
+  forestHhi: 0.1,
+  forestBreadth: 60,
   /** kabudachi: three languages carrying real share, spread across repos. */
   clumpLangs: 3,
   clumpHhi: 0.25,
-  /** sokan: two languages each holding better than a quarter. */
-  twinLangShare: 0.28,
-  /** bunjin: reach far out of proportion to output. */
-  literatiStarsPerCommit: 0.4,
-  literatiMaxCommits: 2000,
+  /**
+   * sokan: a *second* language holding better than 30%. Only the second share is
+   * tested because the shares are sorted and sum to at most one - if the runner-up
+   * clears 30%, the leader has too, and one condition says it more plainly.
+   */
+  twinSecondLang: 0.3,
+  /**
+   * bunjin: reach far out of proportion to output. The corpus median is 3.7 stars
+   * per commit, so the guessed 0.4 was below the tenth percentile - it described
+   * everybody. 25 is roughly the corpus's eightieth percentile.
+   */
+  literatiStarsPerCommit: 25,
+  literatiMaxCommits: 5000,
   literatiMinYears: 3,
   /** sekijoju: one old repo of the account's own, still central. */
   stoneRepoYears: 5,
-  stoneRepoShare: 0.3,
+  stoneRepoShare: 0.2,
   /**
-   * sharimiki: a dormancy this long, that closed this long ago. Healed, not a
-   * wound - a scar drawn on somebody currently absent would be a different claim.
+   * chokkan: rhythm, and nothing else.
+   *
+   * It asked for steadiness *and* an unbroken streak *and* concentration, which
+   * is three claims wearing one name, and the conjunction admitted 4 accounts in
+   * 132. Concentration is not part of what "metronome" means, so it is gone.
    */
-  deadwoodSpellDays: DORMANCY_SPELL_DAYS,
-  deadwoodHealedDays: 180,
+  uprightCadenceCV: 0.9,
+  uprightStreak: 60,
+  /**
+   * hokidachi: spread, and nothing else.
+   *
+   * Broom and upright were competing for the same steady accounts, so whichever
+   * sat higher starved the other. Broom is now about breadth and evenness across
+   * repositories, upright about evenness across time. One signal each.
+   */
+  broomHhi: 0.06,
+  broomBreadth: 20,
   /** neagari: a long history that has gone quiet. */
-  exposedRootYears: 8,
+  exposedRootYears: 7,
   exposedRootDecline: 0.15,
   /** fukinagashi: pulled away, but still here. */
-  windsweptDecline: 0.4,
-  /** hokidachi: even across repos and even across weeks. */
-  broomHhi: 0.15,
-  broomCadenceCV: 0.9,
-  /** chokkan: the metronome - steady, unbroken, and concentrated. */
-  uprightCadenceCV: 0.55,
-  uprightStreak: 180,
-  uprightHhi: 0.4,
-  /** shakan: one big codebase, part of it somebody else's. */
-  slantOwnShareMin: 0.25,
-  slantOwnShareMax: 0.6,
-  slantHhi: 0.35,
+  windsweptDecline: 0.2,
+  /**
+   * sharimiki: a year gone and a year back.
+   *
+   * At the drafted 180/180 this accepted 69 accounts of 149 - in a ten-year
+   * account, a six-month gap that closed six months ago is not a signal, it is a
+   * description of having existed.
+   */
+  deadwoodSpellDays: 365,
+  deadwoodHealedDays: 365,
+  /**
+   * shakan: one big codebase, part of it somebody else's.
+   *
+   * The drafted band wanted mid `ownShare` with high `hhi`, and those are
+   * anticorrelated in real data - contributing to other people's repositories is
+   * exactly what spreads a mix out - so the pair admitted nobody at all.
+   */
+  slantOwnShareMin: 0.3,
+  slantOwnShareMax: 0.9,
+  slantHhi: 0.18,
 } as const;
 
 /** What a rung gets to look at. Everything here is already derived. */
@@ -151,6 +197,12 @@ function langShares(facts: TreeFacts): number[] {
   return facts.languages.map((lang) => lang.share).sort((a, b) => b - a);
 }
 
+/** Stars received per commit - reach measured against output. */
+function starsPerCommit(facts: TreeFacts): number {
+  if (facts.totals.commits <= 0) return 0;
+  return facts.totals.starsReceived / facts.totals.commits;
+}
+
 /** Days since the most recent dormancy closed, or null if none ever has. */
 function healedFor(facts: TreeFacts): number | null {
   const spells = facts.signals.dormancyHistory;
@@ -163,16 +215,23 @@ function healedFor(facts: TreeFacts): number | null {
  * The ladder, in priority order. First match wins.
  *
  * Ordering rule: **a narrower rung sits above every rung that subsumes it.** The
- * multi-trunk styles come first because they are the strongest structural claims
- * and the most specific triggers; the cadence styles come last because almost
- * every account has a cadence and only some have a distinctive one.
+ * structural claims about where someone's commits go come first; the rungs about
+ * rhythm and decline come last, because every account has a cadence and only some
+ * have a distinctive one.
  *
- * `neagari` above `fukinagashi` is the one place the proposal's table had this
- * backwards (D-043). Windswept asks for `declineRatio < 0.4`, exposed-root for
- * `< 0.15` plus eight years - so tabled in the other order, no account could ever
- * be an exposed root, and calibration would have reported the style at 0% without
- * saying why. The reachability test in `form.test.ts` is what keeps that from
- * happening again to a rung added later.
+ * Two places the drafted order was wrong, both caught by measurement rather than
+ * by reading the table:
+ *
+ * - `neagari` above `fukinagashi` (D-043). Windswept asks for a decline, exposed
+ *   root for a steeper decline plus seven years - tabled the other way round, no
+ *   account could ever be an exposed root.
+ * - `chokkan` and `hokidachi` above the decline rungs, and holding one signal
+ *   each (D-044). They previously overlapped on steadiness, so whichever sat
+ *   higher starved the other to zero, and both sat under rungs that took their
+ *   accounts first.
+ *
+ * The reachability test in `form.test.ts` asserts every rung through the whole
+ * selector, which is what keeps this from happening again to a rung added later.
  */
 export const FORM_LADDER: readonly FormRung[] = [
   {
@@ -191,32 +250,13 @@ export const FORM_LADDER: readonly FormRung[] = [
       repoMix.breadth >= FORM_THRESHOLDS.forestBreadth,
   },
   {
-    name: "kabudachi",
-    reads: "a genuine polyglot",
-    when: ({ facts, repoMix }) =>
-      facts.signals.langCount15 >= FORM_THRESHOLDS.clumpLangs &&
-      repoMix.hhi < FORM_THRESHOLDS.clumpHhi,
-  },
-  {
-    name: "sokan",
-    reads: "two worlds at once",
-    when: ({ facts }) => {
-      const shares = langShares(facts);
-      return (
-        (shares[0] ?? 0) >= FORM_THRESHOLDS.twinLangShare &&
-        (shares[1] ?? 0) >= FORM_THRESHOLDS.twinLangShare
-      );
-    },
-  },
-  {
     name: "bunjin",
     reads: "wrote one thing a lot of people use",
     when: ({ facts }) =>
       facts.totals.commits > 0 &&
       facts.totals.commits < FORM_THRESHOLDS.literatiMaxCommits &&
       facts.accountYears >= FORM_THRESHOLDS.literatiMinYears &&
-      facts.totals.starsReceived / facts.totals.commits >=
-        FORM_THRESHOLDS.literatiStarsPerCommit,
+      starsPerCommit(facts) >= FORM_THRESHOLDS.literatiStarsPerCommit,
   },
   {
     name: "sekijoju",
@@ -227,17 +267,30 @@ export const FORM_LADDER: readonly FormRung[] = [
       repoMix.anchor.share >= FORM_THRESHOLDS.stoneRepoShare,
   },
   {
-    name: "sharimiki",
-    reads: "came back from a long absence",
-    when: ({ facts }) => {
-      const healed = healedFor(facts);
-      if (healed === null) return false;
-      const last = facts.signals.dormancyHistory[facts.signals.dormancyHistory.length - 1]!;
-      return (
-        last.days >= FORM_THRESHOLDS.deadwoodSpellDays &&
-        healed >= FORM_THRESHOLDS.deadwoodHealedDays
-      );
-    },
+    name: "kabudachi",
+    reads: "a genuine polyglot",
+    when: ({ facts, repoMix }) =>
+      facts.signals.langCount15 >= FORM_THRESHOLDS.clumpLangs &&
+      repoMix.hhi < FORM_THRESHOLDS.clumpHhi,
+  },
+  {
+    name: "sokan",
+    reads: "two worlds at once",
+    when: ({ facts }) => (langShares(facts)[1] ?? 0) >= FORM_THRESHOLDS.twinSecondLang,
+  },
+  {
+    name: "chokkan",
+    reads: "a metronome",
+    when: ({ facts }) =>
+      facts.signals.cadenceCV < FORM_THRESHOLDS.uprightCadenceCV &&
+      facts.streak.longest >= FORM_THRESHOLDS.uprightStreak,
+  },
+  {
+    name: "hokidachi",
+    reads: "even and wide",
+    when: ({ repoMix }) =>
+      repoMix.hhi < FORM_THRESHOLDS.broomHhi &&
+      repoMix.breadth >= FORM_THRESHOLDS.broomBreadth,
   },
   {
     name: "neagari",
@@ -253,19 +306,17 @@ export const FORM_LADDER: readonly FormRung[] = [
       !facts.dormant && facts.signals.declineRatio < FORM_THRESHOLDS.windsweptDecline,
   },
   {
-    name: "hokidachi",
-    reads: "even and wide",
-    when: ({ facts, repoMix }) =>
-      repoMix.hhi < FORM_THRESHOLDS.broomHhi &&
-      facts.signals.cadenceCV < FORM_THRESHOLDS.broomCadenceCV,
-  },
-  {
-    name: "chokkan",
-    reads: "a metronome",
-    when: ({ facts, repoMix }) =>
-      facts.signals.cadenceCV < FORM_THRESHOLDS.uprightCadenceCV &&
-      facts.streak.longest >= FORM_THRESHOLDS.uprightStreak &&
-      repoMix.hhi > FORM_THRESHOLDS.uprightHhi,
+    name: "sharimiki",
+    reads: "came back from a long absence",
+    when: ({ facts }) => {
+      const healed = healedFor(facts);
+      if (healed === null) return false;
+      const last = facts.signals.dormancyHistory[facts.signals.dormancyHistory.length - 1]!;
+      return (
+        last.days >= FORM_THRESHOLDS.deadwoodSpellDays &&
+        healed >= FORM_THRESHOLDS.deadwoodHealedDays
+      );
+    },
   },
   {
     name: "shakan",
@@ -280,13 +331,12 @@ export const FORM_LADDER: readonly FormRung[] = [
 /**
  * Which silhouette an account gets.
  *
- * Pure, and total: every input lands on some rung or on `moyogi`. The maturity
- * floor and the empty-history case come first, because a style is a claim and
- * there is nothing to claim about either.
+ * Pure, and total: every input lands on some rung or on `moyogi`. The evidence
+ * floor comes first, because a style is a claim and there is nothing yet to
+ * claim about an account with a few weeks in it.
  */
 export function selectForm({ facts, repoMix }: FormInput): FormName {
-  if (facts.maturity < FORM_MIN_MATURITY) return "kokedama";
-  if (facts.signals.activeWeeks === 0) return "kokedama";
+  if (facts.signals.activeWeeks < FORM_MIN_ACTIVE_WEEKS) return "kokedama";
 
   for (const rung of FORM_LADDER) {
     if (rung.when({ facts, repoMix })) return rung.name;

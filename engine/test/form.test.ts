@@ -18,7 +18,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_FORM,
   FORM_LADDER,
-  FORM_MIN_MATURITY,
+  FORM_MIN_ACTIVE_WEEKS,
   FORM_NAMES,
   FORM_THRESHOLDS,
   mayRestyle,
@@ -123,12 +123,32 @@ const CASES: Array<[FormName, NormalizedHistory, RepoMix]> = [
   [
     "ikadabuki",
     historyWith({ weeks: STEADY_WEEKS, createdAt: "2018-01-08" }),
-    { hhi: 0.2, ownShare: 0.1, breadth: 12, orgs: 3, anchor: null },
+    { hhi: 0.2, ownShare: 0.1, breadth: 14, orgs: 3, anchor: null },
   ],
   [
     "yoseUe",
     historyWith({ weeks: STEADY_WEEKS, createdAt: "2018-01-08" }),
-    { hhi: 0.05, ownShare: 0.5, breadth: 30, orgs: 6, anchor: null },
+    { hhi: 0.05, ownShare: 0.5, breadth: 70, orgs: 9, anchor: null },
+  ],
+  [
+    "bunjin",
+    historyWith({
+      weeks: weeksEndingAt(LAST_COMPLETE_WEEK, 300, 6),
+      createdAt: "2018-01-08",
+      totals: { commits: 1200, starsReceived: 40000 },
+    }),
+    PLAIN,
+  ],
+  [
+    "sekijoju",
+    historyWith({ weeks: STEADY_WEEKS, createdAt: "2015-01-05" }),
+    {
+      hhi: 0.3,
+      ownShare: 0.9,
+      breadth: 5,
+      orgs: 0,
+      anchor: { nameWithOwner: "hana/kodama", years: 7, share: 0.44 },
+    },
   ],
   [
     "kabudachi",
@@ -156,30 +176,18 @@ const CASES: Array<[FormName, NormalizedHistory, RepoMix]> = [
     PLAIN,
   ],
   [
-    "bunjin",
+    "chokkan",
     historyWith({
-      weeks: weeksEndingAt(LAST_COMPLETE_WEEK, 300, 6),
+      weeks: STEADY_WEEKS,
       createdAt: "2018-01-08",
-      totals: { commits: 1200, starsReceived: 900 },
+      streak: { current: 200, longest: 400, lastActiveDate: TODAY },
     }),
     PLAIN,
   ],
   [
-    "sekijoju",
-    historyWith({ weeks: STEADY_WEEKS, createdAt: "2015-01-05" }),
-    {
-      hhi: 0.3,
-      ownShare: 0.9,
-      breadth: 5,
-      orgs: 0,
-      anchor: { nameWithOwner: "hana/kodama", years: 7, share: 0.44 },
-    },
-  ],
-  [
-    "sharimiki",
-    // Gone for 40 weeks, back for 40: a spell of ~273 days that closed ~273 ago.
-    historyWith({ weeks: weeksWithGap(40, 40), createdAt: "2015-01-05" }),
-    PLAIN,
+    "hokidachi",
+    historyWith({ weeks: STEADY_WEEKS, createdAt: "2018-01-08" }),
+    { hhi: 0.04, ownShare: 0.7, breadth: 25, orgs: 2, anchor: null },
   ],
   [
     "neagari",
@@ -194,18 +202,12 @@ const CASES: Array<[FormName, NormalizedHistory, RepoMix]> = [
     PLAIN,
   ],
   [
-    "hokidachi",
-    historyWith({ weeks: STEADY_WEEKS, createdAt: "2018-01-08" }),
-    { hhi: 0.1, ownShare: 0.7, breadth: 7, orgs: 1, anchor: null },
-  ],
-  [
-    "chokkan",
-    historyWith({
-      weeks: STEADY_WEEKS,
-      createdAt: "2018-01-08",
-      streak: { current: 200, longest: 400, lastActiveDate: TODAY },
-    }),
-    { hhi: 0.6, ownShare: 0.9, breadth: 3, orgs: 0, anchor: null },
+    "sharimiki",
+    // Gone for 60 weeks, back for 60: a spell of ~413 days that closed ~420 ago,
+    // which is what the rung asks for now that six months either side turned out
+    // to describe most of a decade-old account (D-044).
+    historyWith({ weeks: weeksWithGap(60, 60), createdAt: "2015-01-05" }),
+    PLAIN,
   ],
   [
     "shakan",
@@ -230,18 +232,32 @@ describe("every rung is reachable", () => {
 // Totality and the floor
 // ---------------------------------------------------------------------------
 
-describe("the maturity floor", () => {
+describe("the evidence floor", () => {
   it("gives a seedling the moss ball, whatever else is true of it", () => {
-    // A level-4 account triggering the forest rule is the case this guards: the
-    // signals are real, the sample behind them is not.
+    // Twenty weeks of history triggering the forest rule is the case this guards:
+    // the signals are real, the sample behind them is not.
     const young = historyWith({
       weeks: weeksEndingAt(LAST_COMPLETE_WEEK, 20, 8),
       createdAt: "2018-01-08",
     });
-    expect(facts(young).maturity).toBeLessThan(FORM_MIN_MATURITY);
+    expect(facts(young).signals.activeWeeks).toBeLessThan(FORM_MIN_ACTIVE_WEEKS);
     expect(
-      formOf(young, { hhi: 0.05, ownShare: 0.5, breadth: 30, orgs: 6, anchor: null }),
+      formOf(young, { hhi: 0.05, ownShare: 0.5, breadth: 70, orgs: 9, anchor: null }),
     ).toBe("kokedama");
+  });
+
+  it("measures evidence in active weeks, not in levels", () => {
+    // The correction D-044 records. A year of weekly activity is enough to read
+    // somebody, and it is nowhere near maturity 5 - which needs roughly four years
+    // of steady commits, because maturity is a volume ladder. Measured against the
+    // corpus, the level floor was silencing 58% of real accounts.
+    const year = historyWith({
+      weeks: weeksEndingAt(LAST_COMPLETE_WEEK, FORM_MIN_ACTIVE_WEEKS, 4),
+      createdAt: "2019-01-07",
+      streak: { current: 30, longest: 90, lastActiveDate: TODAY },
+    });
+    expect(facts(year).maturity).toBeLessThan(5);
+    expect(formOf(year, PLAIN)).not.toBe("kokedama");
   });
 
   it("gives a ghost the moss ball rather than a claim about nothing", () => {
@@ -291,30 +307,26 @@ function fixtureForm(name: string): FormName {
 }
 
 describe("the archetypes read differently", () => {
-  it("gives the four fixtures above the floor four different silhouettes", () => {
-    // Half of §7.6's acceptance bar, and the half that needs no corpus. The other
-    // half - the histogram - is `pnpm --filter @kodama/api calibrate`, which
-    // fetches real accounts and is deliberately not a test (D-043).
-    const forms = ["maintainer", "veteran", "whale", "newcomer"].map(fixtureForm);
-    expect(new Set(forms).size, forms.join(" / ")).toBe(4);
+  it("gives maintainer, grinder and newcomer three different silhouettes", () => {
+    // §7.6's third acceptance criterion, and the half of the bar that needs no
+    // corpus. It failed until the floor moved off maturity and onto active weeks
+    // (D-044): the grinder is two years old at maturity 4, and was getting the
+    // same moss ball as an account three weeks old. The other half of the bar -
+    // the histogram - is `pnpm --filter @kodama/api calibrate`, which fetches real
+    // accounts and is deliberately not a test (D-043).
+    const forms = ["maintainer", "grinder", "newcomer"].map(fixtureForm);
+    expect(new Set(forms).size, forms.join(" / ")).toBe(3);
   });
 
-  it("records that the grinder falls under the floor, which §7.6 does not accept yet", () => {
-    // A finding, pinned rather than papered over. §7.6 asks that maintainer,
-    // grinder and newcomer land on *visibly different* styles, and today grinder
-    // and newcomer are the same moss ball: the grinder fixture is two years old
-    // with ~2 000 commits, which is maturity 4, one level under FORM_MIN_MATURITY.
-    //
-    // So the floor as tabled conflates "not enough evidence" with "not enough
-    // volume per level". The grinder has ~100 active weeks of the steadiest cadence
-    // in the fixture set - there is plenty to read, it is simply not level 5 yet.
-    // Which way that resolves (drop the floor to 4, or make it evidence-based on
-    // `activeWeeks`) is a calibration decision and belongs to the run, not to a
-    // guess made here. `calibrate.ts` reports this criterion explicitly.
-    expect(facts(loadFixture("grinder")).maturity).toBeLessThan(FORM_MIN_MATURITY);
-    expect(fixtureForm("grinder")).toBe("kokedama");
+  it("reads the grinder as a working account, not a seedling", () => {
+    // The specific account the old floor got wrong, pinned so it stays fixed.
+    const grinder = facts(loadFixture("grinder"));
+    expect(grinder.maturity).toBeLessThan(5);
+    expect(grinder.signals.activeWeeks).toBeGreaterThanOrEqual(FORM_MIN_ACTIVE_WEEKS);
+    expect(fixtureForm("grinder")).not.toBe("kokedama");
+    // And the genuinely new account still gets the moss ball, which is the whole
+    // point of having a floor at all.
     expect(fixtureForm("newcomer")).toBe("kokedama");
-    expect(fixtureForm("maintainer")).not.toBe("kokedama");
   });
 });
 
