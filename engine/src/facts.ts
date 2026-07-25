@@ -26,6 +26,8 @@ import {
   yearsBetween,
 } from "./date.js";
 import type {
+  DerivedSignals,
+  DormancySpell,
   FruitFact,
   NormalizedHistory,
   OrnamentCounts,
@@ -437,6 +439,172 @@ export function visitorsFor(
 }
 
 // ---------------------------------------------------------------------------
+// Derived signals (PROPOSAL-VARIETALS §2.1)
+// ---------------------------------------------------------------------------
+
+/** A language holding at least this share of repo-weighted bytes counts. */
+export const LANG_SHARE_FLOOR = 0.15;
+
+/**
+ * Silence long enough to leave a permanent mark, as opposed to `DORMANCY_DAYS`,
+ * which is the tree merely resting. Twice the rest threshold: the distinction
+ * being drawn is "took a season off" versus "was gone".
+ */
+export const DORMANCY_SPELL_DAYS = 180;
+
+/** The recent window `declineRatio` measures, and the baseline it measures against. */
+export const DECLINE_WINDOW_WEEKS = 26;
+export const BASELINE_WINDOW_WEEKS = 52;
+
+/**
+ * Kept spells. The ladder only ever asks about the most recent one, and
+ * TreeFacts is served as JSON by the receipts API, so an account with decades of
+ * intermittent activity should not be able to grow that payload without bound.
+ */
+const MAX_DORMANCY_SPELLS = 4;
+
+export function activeWeeks(history: NormalizedHistory): number {
+  return history.weeks.length;
+}
+
+/**
+ * Coefficient of variation of commits per *active* week - stdev over mean,
+ * population stdev, so a single week is 0 rather than undefined.
+ *
+ * Two properties worth being explicit about, because both matter to how the
+ * form ladder may use this number.
+ *
+ * It is scale-free by construction: someone averaging 4 commits a week and
+ * someone averaging 400 get the same score if their shape is the same, which is
+ * the point - this asks about rhythm, not volume.
+ *
+ * It is also blind to gaps, because weeks with no activity are not stored
+ * (WeekCell) and "over active weeks" is what §2.1 specifies. So four heavy weeks
+ * a year scores as steady as fifty. That is not a bug to fix here by quietly
+ * redefining the metric: coverage is a different question and `activeWeeks`
+ * answers it, which is why every ladder rung reading cadence pairs the two.
+ */
+export function cadenceCV(history: NormalizedHistory): number {
+  const counts = history.weeks.map((week) => week.c);
+  if (counts.length < 2) return 0;
+
+  const mean = counts.reduce((sum, c) => sum + c, 0) / counts.length;
+  if (mean === 0) return 0;
+
+  const variance = counts.reduce((sum, c) => sum + (c - mean) ** 2, 0) / counts.length;
+  return Math.sqrt(variance) / mean;
+}
+
+/** Busiest week over the mean active week: 1 is flat, higher is spikier. */
+export function burstiness(history: NormalizedHistory): number {
+  if (history.weeks.length === 0) return 0;
+
+  let max = 0;
+  let total = 0;
+  for (const week of history.weeks) {
+    if (week.c > max) max = week.c;
+    total += week.c;
+  }
+
+  const mean = total / history.weeks.length;
+  if (mean === 0) return 0;
+  return max / mean;
+}
+
+/**
+ * The recent mean against the account's own best sustained year.
+ *
+ * Below 1 means slowing down; at or above 1 means this is as busy as it has ever
+ * been. The comparison is always against the account itself, never against other
+ * people, for the same reason `weatherFor` is.
+ *
+ * Both windows exclude the current, partial ISO week - it is missing days by
+ * definition, and letting it into a 26-week mean would tilt the ratio downward
+ * every Monday and back up every Sunday, which is exactly the day-to-day
+ * instability D-005 forbids.
+ *
+ * Returns 1 - "no decline" - for an account with nothing to compare, rather than
+ * 0. A ghost has not fallen off; it never started, and the ladder must not read a
+ * missing baseline as a windswept life.
+ */
+export function declineRatio(history: NormalizedHistory, date: string): number {
+  if (history.weeks.length === 0) return 1;
+
+  const index = weekIndex(history);
+  const firstMonday = isoWeekStart(history.weeks[0]!.w);
+  const lastCompleteMonday = addDays(isoWeekStart(isoWeekOf(date)), -7);
+
+  // Whole weeks from the first week with activity to the last complete week.
+  const span = Math.floor(daysBetween(firstMonday, lastCompleteMonday) / 7) + 1;
+  if (span <= 0) return 1;
+
+  // A young account is measured over the window it actually has. Dividing its
+  // recent sum by a fixed 26 would count weeks before the account existed as
+  // zeros and manufacture a decline out of youth.
+  const recentWeeks = Math.min(DECLINE_WINDOW_WEEKS, span);
+  const recentMean = sumWeeks(index, date, 1, recentWeeks) / recentWeeks;
+
+  const window = Math.min(BASELINE_WINDOW_WEEKS, span);
+  let running = 0;
+  let best = 0;
+  for (let i = 0; i < span; i += 1) {
+    running += index.get(isoWeekOf(addDays(firstMonday, 7 * i))) ?? 0;
+    if (i >= window) {
+      running -= index.get(isoWeekOf(addDays(firstMonday, 7 * (i - window)))) ?? 0;
+    }
+    if (i >= window - 1 && running > best) best = running;
+  }
+
+  const baselineMean = best / window;
+  if (baselineMean === 0) return 1;
+  return recentMean / baselineMean;
+}
+
+export function langCount15(history: NormalizedHistory): number {
+  return history.languages.filter((lang) => lang.share >= LANG_SHARE_FLOOR).length;
+}
+
+/**
+ * Closed dormancies, oldest first.
+ *
+ * Silence is measured from the *end* of the last active week to the start of the
+ * week activity resumed, so a 26-week absence reports as 182 days and not as the
+ * 189 that comparing two Mondays would give. `isAwakening` compares Mondays
+ * directly against a 90-day threshold, where a week of slack cannot change the
+ * answer; here the threshold is what earns a permanent mark on the trunk, so the
+ * arithmetic is worth getting exactly right.
+ *
+ * An absence still running is deliberately absent: that is `dormant`, and a tree
+ * cannot be marked as having survived something it is still inside.
+ */
+export function dormancyHistory(history: NormalizedHistory): DormancySpell[] {
+  const spells: DormancySpell[] = [];
+
+  for (let i = 1; i < history.weeks.length; i += 1) {
+    const startedAt = isoWeekStart(history.weeks[i - 1]!.w);
+    const endedAt = isoWeekStart(history.weeks[i]!.w);
+    const days = daysBetween(startedAt, endedAt) - 7;
+    if (days > DORMANCY_SPELL_DAYS) spells.push({ startedAt, endedAt, days });
+  }
+
+  return spells.slice(-MAX_DORMANCY_SPELLS);
+}
+
+export function derivedSignalsFor(
+  history: NormalizedHistory,
+  date: string,
+): DerivedSignals {
+  return {
+    activeWeeks: activeWeeks(history),
+    cadenceCV: cadenceCV(history),
+    burstiness: burstiness(history),
+    declineRatio: declineRatio(history, date),
+    langCount15: langCount15(history),
+    dormancyHistory: dormancyHistory(history),
+  };
+}
+
+// ---------------------------------------------------------------------------
 // The computer itself
 // ---------------------------------------------------------------------------
 
@@ -491,5 +659,6 @@ export function treeFacts(history: NormalizedHistory, date: string): TreeFacts {
     totals: history.totals,
     streak: history.streak,
     languages: history.languages,
+    signals: derivedSignalsFor(history, date),
   };
 }

@@ -213,6 +213,44 @@ export interface FruitFact {
   mergedAt: string;
 }
 
+/**
+ * A closed stretch of silence long enough to leave a permanent mark.
+ *
+ * Dates are ISO week starts, because weekly storage is the finest resolution
+ * the schema carries (D-015) - `startedAt` is the Monday of the last active
+ * week before the silence, `endedAt` the Monday of the week activity resumed.
+ * An absence that is still running is not a spell: that is `dormant`.
+ */
+export interface DormancySpell {
+  startedAt: string;
+  endedAt: string;
+  /** Whole days between the end of the last active week and the return. */
+  days: number;
+}
+
+/**
+ * Derived cadence signals (PROPOSAL-VARIETALS §2.1).
+ *
+ * Pure functions of NormalizedHistory plus the render date, costing no schema
+ * change and no extra query. They exist to be read by form selection, and they
+ * are on TreeFacts rather than local to it so the receipts layer can serve the
+ * numbers a silhouette was chosen from.
+ */
+export interface DerivedSignals {
+  /** `weeks.length` - the denominator every anti-gaming rule divides by. */
+  activeWeeks: number;
+  /** Coefficient of variation of commits per active week. 0 = metronome. */
+  cadenceCV: number;
+  /** Busiest week over the mean active week. 1 = perfectly flat. */
+  burstiness: number;
+  /** Recent 26-week mean over the best 52-week mean. < 1 = slowing down. */
+  declineRatio: number;
+  /** Languages holding at least a 15% share. */
+  langCount15: number;
+  /** Closed dormancies, oldest first, most recent few only. */
+  dormancyHistory: DormancySpell[];
+}
+
 export interface TreeFacts {
   login: string;
   /** The render date, "YYYY-MM-DD" UTC - the only time source. */
@@ -251,4 +289,5 @@ export interface TreeFacts {
   totals: HistoryTotals;
   streak: HistoryStreak;
   languages: LangShare[];
+  signals: DerivedSignals;
 }

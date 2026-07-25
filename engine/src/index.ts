@@ -8,6 +8,8 @@
 
 export type {
   Biome,
+  DerivedSignals,
+  DormancySpell,
   FruitFact,
   HistoryStreak,
   HistoryTotals,
@@ -54,6 +56,15 @@ export { DEFAULT_SPECIES, isClassic, SPECIES_NAMES, speciesByName } from "./spec
 export type { BlossomKind, FruitKind, LeafKind, Species, SpeciesName } from "./species.js";
 
 export { treeFacts } from "./facts.js";
+export {
+  activeWeeks,
+  burstiness,
+  cadenceCV,
+  declineRatio,
+  derivedSignalsFor,
+  dormancyHistory,
+  langCount15,
+} from "./facts.js";
 export { receiptsFor } from "./receipts.js";
 export type { Receipt } from "./receipts.js";
 export { render, SCALE_SIZES } from "./render.js";
