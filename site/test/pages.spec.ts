@@ -46,8 +46,21 @@ test.describe("the grammar page", () => {
   test("covers every Tier-1 signal in the PRD grammar table", async ({ page }) => {
     await page.goto("/grammar");
     // Thirteen rows, one per signal. A row quietly disappearing is the way this
-    // page rots: it is the launch post's canonical link.
-    await expect(page.locator("tbody tr")).toHaveCount(13);
+    // page rots: it is the launch post's canonical link. Scoped to the signals
+    // table, because the options table below it is a different kind of claim and
+    // an unscoped count silently merged the two.
+    await expect(page.locator("#signals tbody tr")).toHaveCount(13);
+  });
+
+  test("keeps the options out of the signals table", async ({ page }) => {
+    await page.goto("/grammar");
+    // A signal is computed from public history; an option is a preference. The
+    // page must not present them as the same kind of thing (D-041), so the plants
+    // belong here and nowhere above.
+    await expect(page.locator("#options tbody tr")).toHaveCount(6);
+    await expect(page.locator("#options")).toContainText("?species=");
+    await expect(page.locator("#options")).toContainText("Japanese maple");
+    await expect(page.locator("#signals")).not.toContainText("?species=");
   });
 
   test("has no axe violations", async ({ page }) => {

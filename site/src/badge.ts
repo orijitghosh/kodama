@@ -13,6 +13,8 @@ export interface BadgeOptions {
   scale: string;
   animate: boolean;
   tint: string;
+  /** Which plant to draw. `classic` is the tree as shipped and the default. */
+  species: string;
   locale: string;
 }
 
@@ -21,8 +23,8 @@ export type BadgeDefaults = BadgeOptions;
 
 /**
  * Only non-default options reach the URL. A README line is something a person
- * reads, and `?theme=ink&scale=full&animate=auto&tint=none&locale=en` is five
- * facts that all mean "I changed nothing".
+ * reads, and `?theme=ink&scale=full&animate=auto&tint=none&species=classic` is a
+ * row of facts that all mean "I changed nothing".
  */
 export function badgeUrl(
   origin: string,
@@ -34,6 +36,7 @@ export function badgeUrl(
   if (options.theme !== defaults.theme) url.searchParams.set("theme", options.theme);
   if (options.scale !== defaults.scale) url.searchParams.set("scale", options.scale);
   if (options.tint !== defaults.tint) url.searchParams.set("tint", options.tint);
+  if (options.species !== defaults.species) url.searchParams.set("species", options.species);
   if (options.locale !== defaults.locale) url.searchParams.set("locale", options.locale);
   // `animate` is a tri-state in the URL grammar and a boolean here; only the
   // off case is worth spelling, since `auto` is what the default already means.
@@ -58,6 +61,7 @@ export function permalinkQuery(login: string, options: BadgeOptions): string {
     theme: options.theme,
     scale: options.scale,
     tint: options.tint,
+    species: options.species,
     animate: options.animate ? "auto" : "off",
   });
   return `?${params.toString()}`;

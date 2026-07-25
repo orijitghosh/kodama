@@ -1,5 +1,5 @@
 ---
-import { receiptsFor, treeFacts } from "@kodama/engine";
+import { receiptsFor, SPECIES_NAMES, speciesByName, treeFacts } from "@kodama/engine";
 
 import Page from "../layouts/Page.astro";
 import { loadFixture, renderSpecimen, SPECIMEN_DATES } from "../specimens";
@@ -78,8 +78,8 @@ const ROWS: Row[] = [
   },
   {
     signal: "Stars received",
-    visual: "Fireflies at dusk",
-    rule: "3 × log10(1 + stars), so whales do not white out the canvas",
+    visual: "Fireflies at night, butterflies by day",
+    rule: "3 × log10(1 + stars), so whales do not white out the canvas; the mark changes with the theme, never the count",
     target: "kd-fireflies",
   },
   {
@@ -113,6 +113,28 @@ const ROWS: Row[] = [
 ];
 
 const shown = new Set(receipts.map((r) => r.target));
+
+/**
+ * The options, kept deliberately out of the signals table.
+ *
+ * A signal is computed from public history and answers for itself. An option is a
+ * preference, and the two must not be presented as the same kind of thing - a
+ * plant you picked is not evidence about your account (D-041). So the table stays
+ * thirteen signals and the choices live below it, with the rule that separates
+ * them stated out loud.
+ */
+const PLANTS = SPECIES_NAMES.map((name) =>
+  name === "classic" ? "bonsai (the original, and the default)" : speciesByName(name).label,
+);
+
+const OPTIONS: Array<{ param: string; effect: string }> = [
+  { param: "?theme=", effect: "six palettes; three carry a night layer for lantern glow and fireflies" },
+  { param: "?scale=", effect: "full, compact, strip, or an 88×31 button" },
+  { param: "?animate=off", effect: "stops the sway, the drift and the falling petals" },
+  { param: "?tint=lang", effect: "nudges the foliage hue by your top language" },
+  { param: "?species=", effect: `the plant itself - ${PLANTS.join(", ")}` },
+  { param: "?date=", effect: "draws the tree as it stood on a past day" },
+];
 ---
 
 <Page
@@ -133,7 +155,7 @@ const shown = new Set(receipts.map((r) => r.target));
     element on the tree.
   </p>
 
-  <table>
+  <table id="signals">
     <caption class="note">
       Rows marked with a dot appear on this specimen; the rest need a history that
       earns them.
@@ -163,6 +185,35 @@ const shown = new Set(receipts.map((r) => r.target));
             </th>
             <td>{row.visual}</td>
             <td class="rule">{row.rule}</td>
+          </tr>
+        ))
+      }
+    </tbody>
+  </table>
+
+  <h2>What you can choose</h2>
+  <p>
+    Six URL parameters, and a rule that holds for all of them: <strong>an option
+    changes the drawing and never the numbers.</strong> Picking a ginkgo changes the
+    leaf, the autumn colour and the fruit form; it cannot add a commit, ripen a pull
+    request or move a pad. That is why the plants are here rather than in the table
+    above - a signal answers for your account, and a preference answers for your
+    taste.
+  </p>
+
+  <table id="options">
+    <thead>
+      <tr>
+        <th scope="col">Parameter</th>
+        <th scope="col">What it changes</th>
+      </tr>
+    </thead>
+    <tbody>
+      {
+        OPTIONS.map((option) => (
+          <tr>
+            <th scope="row"><code>{option.param}</code></th>
+            <td class="rule">{option.effect}</td>
           </tr>
         ))
       }

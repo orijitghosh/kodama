@@ -85,17 +85,43 @@ test.describe("with JavaScript", () => {
 
   test("the configuration survives a reload, so a link can be shared", async ({ page }) => {
     await stubBadges(page);
-    await page.goto("/?user=tj&theme=yozakura&scale=strip&tint=lang&animate=off");
+    await page.goto(
+      "/?user=tj&theme=yozakura&scale=strip&tint=lang&species=ginkgo&animate=off",
+    );
 
     await expect(page.locator("#user")).toHaveValue("tj");
     await expect(page.locator("#theme")).toHaveValue("yozakura");
     await expect(page.locator("#scale")).toHaveValue("strip");
     await expect(page.locator("#tint")).toHaveValue("lang");
+    await expect(page.locator("#species")).toHaveValue("ginkgo");
     await expect(page.locator("#animate")).not.toBeChecked();
     await expect(page.locator("#tree")).toHaveAttribute(
       "src",
-      `${ORIGIN}/tj.svg?theme=yozakura&scale=strip&tint=lang&animate=off`,
+      `${ORIGIN}/tj.svg?theme=yozakura&scale=strip&tint=lang&species=ginkgo&animate=off`,
     );
+  });
+
+  test("the default plant leaves no trace in the snippet", async ({ page }) => {
+    // The whole point of `classic` being the default: someone who never opens the
+    // plant menu gets the URL they always got.
+    await stubBadges(page);
+    await page.goto("/?user=tj");
+
+    await expect(page.locator("#species")).toHaveValue("classic");
+    await expect(page.locator("#tree")).toHaveAttribute("src", `${ORIGIN}/tj.svg`);
+    await expect(page.locator("#snippet")).toHaveText(`![kodama tree for tj](${ORIGIN}/tj.svg)`);
+  });
+
+  test("picking a plant reaches the badge and the snippet", async ({ page }) => {
+    await stubBadges(page);
+    await page.goto("/?user=tj");
+    await page.selectOption("#species", "momiji");
+
+    await expect(page.locator("#tree")).toHaveAttribute(
+      "src",
+      `${ORIGIN}/tj.svg?species=momiji`,
+    );
+    await expect(page.locator("#snippet")).toContainText("species=momiji");
   });
 
   test("copy puts the snippet on the clipboard", async ({ page, context }) => {

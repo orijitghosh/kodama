@@ -1,6 +1,6 @@
 ---
 import { LOGIN_PATTERN, OPTION_DEFAULTS } from "@kodama/api";
-import { SCALES, THEME_NAMES } from "@kodama/engine";
+import { SCALES, SPECIES_NAMES, speciesByName, THEME_NAMES } from "@kodama/engine";
 
 import { badgeUrl, markdownSnippet } from "../badge";
 import type { BadgeOptions } from "../badge";
@@ -23,8 +23,20 @@ const defaults: BadgeOptions = {
   scale: OPTION_DEFAULTS.scale,
   animate: OPTION_DEFAULTS.animate,
   tint: OPTION_DEFAULTS.tint,
+  species: OPTION_DEFAULTS.species,
   locale: OPTION_DEFAULTS.locale,
 };
+
+/**
+ * The plant list, named the way a person would say it.
+ *
+ * `classic` is the default and its own label is just "bonsai", which reads as a
+ * missing entry in a dropdown - so it is spelled out here as the original.
+ */
+const PLANTS = SPECIES_NAMES.map((name) => ({
+  name,
+  label: name === "classic" ? "bonsai (the original)" : speciesByName(name).label,
+}));
 
 const demoUrl = badgeUrl(origin, DEMO_LOGIN, defaults, defaults);
 const demoSnippet = markdownSnippet(DEMO_LOGIN, demoUrl);
@@ -95,6 +107,19 @@ const demoSnippet = markdownSnippet(DEMO_LOGIN, demoUrl);
 
         <div class="row">
           <div class="field">
+            <label for="species">Plant</label>
+            <select id="species" name="species">
+              {
+                PLANTS.map((plant) => (
+                  <option value={plant.name} selected={plant.name === defaults.species}>
+                    {plant.label}
+                  </option>
+                ))
+              }
+            </select>
+          </div>
+
+          <div class="field">
             <label for="tint">Foliage tint</label>
             <select id="tint" name="tint">
               <option value="none" selected={defaults.tint === "none"}>theme colours</option>
@@ -139,7 +164,7 @@ const demoSnippet = markdownSnippet(DEMO_LOGIN, demoUrl);
         <p>
           The picker needs JavaScript, but the badge does not. Paste this into any
           README and swap the name - every option is a query parameter
-          (<code>?theme=dusk&amp;scale=compact&amp;animate=off</code>):
+          (<code>?theme=dusk&amp;scale=compact&amp;species=ginkgo&amp;animate=off</code>):
         </p>
         <p><code>{markdownSnippet("YOUR-USERNAME", `${origin}/YOUR-USERNAME.svg`)}</code></p>
       </noscript>
@@ -153,6 +178,7 @@ const demoSnippet = markdownSnippet(DEMO_LOGIN, demoUrl);
       const theme = document.querySelector<HTMLSelectElement>("#theme");
       const scale = document.querySelector<HTMLSelectElement>("#scale");
       const tint = document.querySelector<HTMLSelectElement>("#tint");
+      const species = document.querySelector<HTMLSelectElement>("#species");
       const animate = document.querySelector<HTMLInputElement>("#animate");
       const tree = document.querySelector<HTMLImageElement>("#tree");
       const snippet = document.querySelector<HTMLElement>("#snippet");
@@ -160,7 +186,7 @@ const demoSnippet = markdownSnippet(DEMO_LOGIN, demoUrl);
       const status = document.querySelector<HTMLElement>("#status");
       const receiptsLink = document.querySelector<HTMLAnchorElement>("#receipts-link");
 
-      if (form && user && theme && scale && tint && animate && tree && snippet) {
+      if (form && user && theme && scale && tint && species && animate && tree && snippet) {
         const origin = form.dataset.origin ?? window.location.origin;
         const defaults = JSON.parse(form.dataset.defaults ?? "{}") as BadgeOptions;
 
@@ -168,6 +194,7 @@ const demoSnippet = markdownSnippet(DEMO_LOGIN, demoUrl);
           theme: theme.value,
           scale: scale.value,
           tint: tint.value,
+          species: species.value,
           animate: animate.checked,
           locale: defaults.locale,
         });
@@ -183,6 +210,7 @@ const demoSnippet = markdownSnippet(DEMO_LOGIN, demoUrl);
           set(theme, "theme");
           set(scale, "scale");
           set(tint, "tint");
+          set(species, "species");
           const a = q.get("animate");
           if (a !== null) animate.checked = a !== "off" && a !== "false";
         };
@@ -216,7 +244,7 @@ const demoSnippet = markdownSnippet(DEMO_LOGIN, demoUrl);
           window.clearTimeout(timer);
           timer = window.setTimeout(apply, 400);
         });
-        for (const el of [theme, scale, tint, animate]) {
+        for (const el of [theme, scale, tint, species, animate]) {
           el.addEventListener("change", apply);
         }
         form.addEventListener("submit", (event) => {
