@@ -64,6 +64,24 @@ differs between the images is the form and not the size.
 4. **The six gallery fixtures as they now render** - the real accounts, and the
    sheet gates #1 and #2 are being asked to re-approve.
 
+## Measured before the walk
+
+Two things fall out of the geometry without needing an eye on them. Neither is a
+verdict; both are here so the walk does not have to rediscover them.
+
+**The four multi-trunk forms are short.** Crown top in px, against `moyogi` at 189
+and `chokkan` at 144: `kabudachi` 244, `sokan` 245, `yoseUe` 252, `ikadabuki` 273.
+That last is 123px of tree where a normal one is 207. The cause is C.3's shared
+node budget - `ceil(MAX_SKELETON_NODES / trunks.length)` - so each stem runs out of
+nodes and stops climbing. `padCountFor(maturity)` cannot fall (C.6 rule 1), so nine
+pads pack into a crown two-thirds the height.
+
+**`bunjin` is neither tall nor thin.** 202px tall - shorter than `moyogi` - and
+271px wide, the widest of all fourteen. The crown is shrunk by `ryScale: 0.5` but
+lifted only 30px, so the branches sprawl at ordinary height before reaching it. The
+docblock claims a long bare trunk with foliage gathered at the apex; the drawing is
+not that.
+
 ## The two questions
 
 For every image:
