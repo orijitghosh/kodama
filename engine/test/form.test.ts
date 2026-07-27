@@ -26,57 +26,21 @@ import {
 } from "../src/form.js";
 import type { FormName } from "../src/form.js";
 import { MAX_MATURITY, treeFacts } from "../src/facts.js";
-import { addDays, isoWeekOf, isoWeekStart } from "../src/date.js";
-import type { NormalizedHistory, RepoMix, TreeFacts, WeekCell } from "../src/types.js";
+import type { NormalizedHistory, RepoMix, TreeFacts } from "../src/types.js";
 import { FIXTURE_ANCHOR_DATE, loadFixture } from "./helpers/fixtures.js";
 import { historyWith, weeksEndingAt } from "./helpers/history.js";
+import {
+  burstyWeeks,
+  FORM_CASES,
+  formCasesCoverEveryForm,
+  LAST_COMPLETE_WEEK,
+  PLAIN,
+  STEADY_WEEKS,
+} from "./helpers/form-cases.js";
 
 const TODAY = FIXTURE_ANCHOR_DATE;
-const LAST_COMPLETE_WEEK = isoWeekOf(addDays(isoWeekStart(isoWeekOf(TODAY)), -7));
-
-/**
- * Enough flat weeks to clear the maturity floor comfortably, with a cadence of
- * exactly zero variation - so any cadence-driven rung that fires in a test below
- * fired because the test asked for it.
- */
-const STEADY_WEEKS = weeksEndingAt(LAST_COMPLETE_WEEK, 200, 20);
-
-/** Weeks that end `gapWeeks` before the last complete week, then resume. */
-function weeksWithGap(gapWeeks: number, sinceWeeks: number): WeekCell[] {
-  const before = weeksEndingAt(
-    isoWeekOf(addDays(isoWeekStart(LAST_COMPLETE_WEEK), -7 * (sinceWeeks + gapWeeks))),
-    180,
-    20,
-  );
-  return [...before, ...weeksEndingAt(LAST_COMPLETE_WEEK, sinceWeeks, 20)];
-}
-
-/**
- * A long busy stretch that fades to `tail` commits a week for the last 60 weeks,
- * with no gap anywhere - a decline, not an absence. The distinction is the whole
- * difference between the windswept rungs and `sharimiki`, and writing this as two
- * separate runs of weeks with a hole between them is how the first draft of these
- * cases accidentally tested deadwood three times.
- */
-function fadingWeeks(tail: number): WeekCell[] {
-  return [
-    ...weeksEndingAt(isoWeekOf(addDays(isoWeekStart(LAST_COMPLETE_WEEK), -7 * 60)), 200, 40),
-    ...weeksEndingAt(LAST_COMPLETE_WEEK, 60, tail),
-  ];
-}
-
-/** Alternating quiet and heavy weeks: a high `cadenceCV` by construction. */
-function burstyWeeks(count: number): WeekCell[] {
-  return weeksEndingAt(LAST_COMPLETE_WEEK, count, 20).map((week, i) => ({
-    ...week,
-    c: i % 2 === 0 ? 1 : 80,
-  }));
-}
 
 const NOTHING: RepoMix = { hhi: 0, ownShare: 0, breadth: 0, orgs: 0, anchor: null };
-
-/** A mix that no rung reads as anything: concentrated, owned, unremarkable. */
-const PLAIN: RepoMix = { hhi: 0.3, ownShare: 0.95, breadth: 4, orgs: 0, anchor: null };
 
 function facts(history: NormalizedHistory, date = TODAY): TreeFacts {
   return treeFacts(history, date);
@@ -112,118 +76,24 @@ describe("the catalogue", () => {
 // ---------------------------------------------------------------------------
 
 /**
- * One crafted account per rung: the shortest history that should land on it.
+ * The crafted accounts live in `helpers/form-cases.ts`, because Taste Gate #4
+ * needs to draw the same fourteen accounts this suite selects. Two copies of an
+ * account that is supposed to be a `sharimiki` would let the sheet illustrate a
+ * style the ladder had quietly stopped producing.
  *
  * Asserting the *whole* selection rather than the rung's predicate is the point.
  * A case that satisfies its own rung but is intercepted by an earlier one fails
  * here, which makes this simultaneously a reachability test and a priority-order
  * test.
  */
-const CASES: Array<[FormName, NormalizedHistory, RepoMix]> = [
-  [
-    "ikadabuki",
-    historyWith({ weeks: STEADY_WEEKS, createdAt: "2018-01-08" }),
-    { hhi: 0.2, ownShare: 0.1, breadth: 14, orgs: 3, anchor: null },
-  ],
-  [
-    "yoseUe",
-    historyWith({ weeks: STEADY_WEEKS, createdAt: "2018-01-08" }),
-    { hhi: 0.05, ownShare: 0.5, breadth: 70, orgs: 9, anchor: null },
-  ],
-  [
-    "bunjin",
-    historyWith({
-      weeks: weeksEndingAt(LAST_COMPLETE_WEEK, 300, 6),
-      createdAt: "2018-01-08",
-      totals: { commits: 1200, starsReceived: 40000 },
-    }),
-    PLAIN,
-  ],
-  [
-    "sekijoju",
-    historyWith({ weeks: STEADY_WEEKS, createdAt: "2015-01-05" }),
-    {
-      hhi: 0.3,
-      ownShare: 0.9,
-      breadth: 5,
-      orgs: 0,
-      anchor: { nameWithOwner: "hana/kodama", years: 7, share: 0.44 },
-    },
-  ],
-  [
-    "kabudachi",
-    historyWith({
-      weeks: STEADY_WEEKS,
-      createdAt: "2018-01-08",
-      languages: [
-        { name: "Go", share: 0.34 },
-        { name: "Rust", share: 0.3 },
-        { name: "TypeScript", share: 0.2 },
-      ],
-    }),
-    { hhi: 0.2, ownShare: 0.8, breadth: 6, orgs: 1, anchor: null },
-  ],
-  [
-    "sokan",
-    historyWith({
-      weeks: STEADY_WEEKS,
-      createdAt: "2018-01-08",
-      languages: [
-        { name: "Go", share: 0.5 },
-        { name: "Rust", share: 0.4 },
-      ],
-    }),
-    PLAIN,
-  ],
-  [
-    "chokkan",
-    historyWith({
-      weeks: STEADY_WEEKS,
-      createdAt: "2018-01-08",
-      streak: { current: 200, longest: 400, lastActiveDate: TODAY },
-    }),
-    PLAIN,
-  ],
-  [
-    "hokidachi",
-    historyWith({ weeks: STEADY_WEEKS, createdAt: "2018-01-08" }),
-    { hhi: 0.04, ownShare: 0.7, breadth: 25, orgs: 2, anchor: null },
-  ],
-  [
-    "neagari",
-    // Twelve years old, still ticking over at a fraction of its best year.
-    historyWith({ weeks: fadingWeeks(1), createdAt: "2014-01-06" }),
-    PLAIN,
-  ],
-  [
-    "fukinagashi",
-    // The same shape at five years old: a decline, not a monument.
-    historyWith({ weeks: fadingWeeks(6), createdAt: "2021-01-04" }),
-    PLAIN,
-  ],
-  [
-    "sharimiki",
-    // Gone for 60 weeks, back for 60: a spell of ~413 days that closed ~420 ago,
-    // which is what the rung asks for now that six months either side turned out
-    // to describe most of a decade-old account (D-044).
-    historyWith({ weeks: weeksWithGap(60, 60), createdAt: "2015-01-05" }),
-    PLAIN,
-  ],
-  [
-    "shakan",
-    historyWith({ weeks: burstyWeeks(300), createdAt: "2018-01-08" }),
-    { hhi: 0.5, ownShare: 0.45, breadth: 4, orgs: 1, anchor: null },
-  ],
-];
-
 describe("every rung is reachable", () => {
-  it("covers the whole ladder with a case each", () => {
-    expect(CASES.map(([name]) => name)).toEqual(FORM_LADDER.map((rung) => rung.name));
+  it("covers the whole catalogue with a case each", () => {
+    expect(formCasesCoverEveryForm()).toBe(true);
   });
 
-  for (const [expected, history, repoMix] of CASES) {
-    it(`selects ${expected}`, () => {
-      expect(formOf(history, repoMix)).toBe(expected);
+  for (const one of FORM_CASES) {
+    it(`selects ${one.form}`, () => {
+      expect(formOf(one.history, one.history.repoMix)).toBe(one.form);
     });
   }
 });
@@ -283,9 +153,9 @@ describe("the fallback", () => {
 
 describe("selection is pure", () => {
   it("returns the same form for the same input, every time", () => {
-    for (const [, history, repoMix] of CASES) {
-      const first = formOf(history, repoMix);
-      for (let i = 0; i < 5; i += 1) expect(formOf(history, repoMix)).toBe(first);
+    for (const { history } of FORM_CASES) {
+      const first = formOf(history, history.repoMix);
+      for (let i = 0; i < 5; i += 1) expect(formOf(history, history.repoMix)).toBe(first);
     }
   });
 
