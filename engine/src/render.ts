@@ -27,6 +27,49 @@ export const SCALE_SIZES: Record<Scale, { width: number; height: number }> = {
 const MARGIN = 24;
 
 // ---------------------------------------------------------------------------
+// The legend's ceiling
+// ---------------------------------------------------------------------------
+
+/**
+ * The legend is laid out bottom-up from `LEGEND_BOTTOM` so the column stays a
+ * quiet caption at any length. That makes the *top* row the one that moves, and
+ * the thing it moves towards is the last line of stats text - so the number of
+ * rows the column can hold is a fact about the geometry, not a number somebody
+ * chose. It is written here as the division it actually is, so that moving any
+ * of the three constants moves the cap with it.
+ *
+ * Today it comes out at nine, and a maintainer-shaped account (`whale`) already
+ * draws all nine. There is no spare row. A tenth would land at y=208 and print
+ * over the "this week" line at y=198.
+ */
+const STATS_LAST_BASELINE = 198;
+const LEGEND_BOTTOM = 388;
+const LEGEND_ROW_HEIGHT = 20;
+
+export const LEGEND_MAX_ROWS = Math.floor(
+  (LEGEND_BOTTOM - STATS_LAST_BASELINE) / LEGEND_ROW_HEIGHT,
+);
+
+/**
+ * Baselines for a legend of `count` rows, top to bottom, and the one place the
+ * cap is enforced. Exported so the cap can be tested at the count no history can
+ * produce - the entry list in `drawStats` is exactly nine long, so the guard is
+ * unreachable from data by construction, and an unreachable guard that is never
+ * exercised is indistinguishable from a comment.
+ */
+export function legendRowBaselines(count: number): number[] {
+  if (count > LEGEND_MAX_ROWS) {
+    throw new Error(
+      `legend wants ${String(count)} rows and the stats column holds ` +
+        `${String(LEGEND_MAX_ROWS)}: row ${String(LEGEND_MAX_ROWS + 1)} would draw over the ` +
+        `stats text at y=${String(STATS_LAST_BASELINE)}. Name it in the header line instead, ` +
+        `or take a row away from something else.`,
+    );
+  }
+  return Array.from({ length: count }, (_, i) => LEGEND_BOTTOM - (count - 1 - i) * LEGEND_ROW_HEIGHT);
+}
+
+// ---------------------------------------------------------------------------
 // Number formatting (no toLocaleString - it varies by host, SPEC-ENGINE §1)
 // ---------------------------------------------------------------------------
 
@@ -179,9 +222,21 @@ function drawStats(facts: TreeFacts, theme: Theme, locale: string): string {
   );
   entry(o.windChime, slot("textSecondary"), labels.legendChime);
 
-  const bottom = 388;
+  // Form is deliberately absent from this list, and so is species. A legend row
+  // says "this mark on the tree means this fact", and carries the slot the mark
+  // is drawn in so the caption reads off the picture (D-024). Form is not a mark
+  // hung on the tree - it is the outline of the whole thing, and there is no dot
+  // colour it could honestly carry. It is named in the header line instead,
+  // which is the route species already took for the same reason.
+  //
+  // That is a choice, but it is not a free one: the list above is nine entries
+  // long and the column holds exactly nine rows, so a tenth row is not a design
+  // question, it is a collision. Anything that wants to be in the key from here
+  // has to displace something or move out of the column.
+  const baselines = legendRowBaselines(legend.length);
+
   legend.forEach(([colour, label], index) => {
-    const y = bottom - (legend.length - 1 - index) * 20;
+    const y = baselines[index]!;
     parts.push(el("circle", { cx: x + 4, cy: y - 4, r: 4, fill: colour }));
     parts.push(
       text(x + 16, y, label, {

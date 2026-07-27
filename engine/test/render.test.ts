@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import fc from "fast-check";
 import { XMLParser, XMLValidator } from "fast-xml-parser";
-import { render, SCALE_SIZES, groupDigits } from "../src/render.js";
+import {
+  render,
+  SCALE_SIZES,
+  groupDigits,
+  LEGEND_MAX_ROWS,
+  legendRowBaselines,
+} from "../src/render.js";
 import { animationStyles } from "../src/animate.js";
 import { byteLength, num, PathBuilder, SvgValueError, escapeText } from "../src/svg.js";
 import { attractorCloud, buildSkeleton, padCountFor, BASE_X, BASE_Y } from "../src/skeleton.js";
@@ -584,5 +590,63 @@ describe("the legend names the symbols actually on the tree", () => {
     for (const label of [L.legendFruit, L.legendLanterns, L.legendBlossom, L.legendBird]) {
       expect(svg).not.toContain(label);
     }
+  });
+});
+
+describe("the legend is full", () => {
+  /** The dots, top to bottom. Only the legend draws an r=4 circle in the stats column. */
+  function legendRows(svg: string): number[] {
+    return [...svg.matchAll(/<circle cx="504" cy="(\d+)" r="4"/g)].map((m) => Number(m[1]));
+  }
+
+  it("holds nine rows, and that number is the geometry, not a preference", () => {
+    expect(LEGEND_MAX_ROWS).toBe(9);
+  });
+
+  it("whale already draws all nine, so there is no spare row", () => {
+    // The cap only matters because something reaches it. If this ever drops
+    // below the cap, the tenth-row problem has quietly gone away and the throw
+    // in drawStats is dead code - which is a thing to notice, not to delete.
+    expect(legendRows(render(loadFixture("whale"), DATE, opts({ theme: "ink" })))).toHaveLength(
+      LEGEND_MAX_ROWS,
+    );
+  });
+
+  it("clears the stats text at every fixture, on every theme", () => {
+    // The failure this guards is not a crash, it is a legible picture with two
+    // strings of text on top of each other - which no test asserting labels or
+    // counts would ever see.
+    for (const theme of THEME_NAMES) {
+      for (const [name, history] of allFixtures()) {
+        const rows = legendRows(render(history, DATE, opts({ theme })));
+        expect(rows.length, `${name}/${theme}: over the cap`).toBeLessThanOrEqual(LEGEND_MAX_ROWS);
+        for (const cy of rows) {
+          // cy is the dot; the baseline it belongs to is 4px below it.
+          expect(cy + 4, `${name}/${theme}: a legend row is over the stats`).toBeGreaterThan(198);
+        }
+      }
+    }
+  });
+
+  it("lays nine rows out bottom-up from 388, so the ninth clears the stats", () => {
+    expect(legendRowBaselines(LEGEND_MAX_ROWS)).toEqual([
+      228, 248, 268, 288, 308, 328, 348, 368, 388,
+    ]);
+    expect(legendRowBaselines(1)).toEqual([388]);
+    expect(legendRowBaselines(0)).toEqual([]);
+  });
+
+  it("refuses a tenth row rather than printing it over the stats", () => {
+    // Reached by hand: no history can produce ten entries, because the list in
+    // drawStats is exactly nine long. That is the point - the guard exists for
+    // the next element somebody adds, and an unexercised guard is a comment.
+    expect(() => legendRowBaselines(LEGEND_MAX_ROWS + 1)).toThrow(/would draw over the stats/);
+  });
+
+  it("puts the tenth row exactly where the collision is, if the cap is lifted", () => {
+    // Documents the number the cap is protecting: 208, against stats text whose
+    // baseline is 198. Not a hypothetical margin - one row of overlap.
+    const unguarded = 388 - (10 - 1 - 0) * 20;
+    expect(unguarded).toBe(208);
   });
 });

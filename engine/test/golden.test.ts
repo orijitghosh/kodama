@@ -12,26 +12,26 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { render } from "../src/render.js";
-import { loadFixture } from "./helpers/fixtures.js";
+import { FORM_CASES } from "./helpers/form-cases.js";
 import { GOLDEN_DIR, GOLDEN_OPTIONS, goldenCases } from "./helpers/golden.js";
 
 const cases = goldenCases();
 
 describe("golden renders", () => {
-  it("covers 48 static cases plus 12 animate cases", () => {
-    expect(cases).toHaveLength(60);
+  it("covers 48 static cases, 12 animate cases and one per form", () => {
+    expect(cases).toHaveLength(60 + FORM_CASES.length);
   });
 
-  for (const { fixture, theme, season, file, date, animate } of cases) {
+  for (const { name, theme, season, file, date, animate, history } of cases) {
     const label = animate ? `${season} · animate` : season;
-    it(`${fixture} · ${theme} · ${label} matches its golden`, () => {
+    it(`${name} · ${theme} · ${label} matches its golden`, () => {
       const path = join(GOLDEN_DIR, file);
       expect(
         existsSync(path),
         `missing golden ${file} - run \`pnpm --filter @kodama/engine golden:update\``,
       ).toBe(true);
 
-      const actual = render(loadFixture(fixture), date, { ...GOLDEN_OPTIONS, theme, animate });
+      const actual = render(history(), date, { ...GOLDEN_OPTIONS, theme, animate });
       // Read as utf8 and compare strings so a stray CRLF from a mis-set
       // core.autocrlf fails loudly here rather than silently passing.
       const expected = readFileSync(path, "utf8");

@@ -7,8 +7,10 @@
  */
 
 import { resolve } from "node:path";
-import type { RenderOptions, ThemeName } from "../../src/types.js";
-import { GALLERY_FIXTURES, FIXTURE_ANCHOR_DATE } from "./fixtures.js";
+import type { FormName } from "../../src/form.js";
+import type { NormalizedHistory, RenderOptions, ThemeName } from "../../src/types.js";
+import { FORM_CASES, FORM_CASE_DATE } from "./form-cases.js";
+import { GALLERY_FIXTURES, FIXTURE_ANCHOR_DATE, loadFixture } from "./fixtures.js";
 
 export const GOLDEN_DIR = resolve(import.meta.dirname, "../golden");
 
@@ -41,14 +43,32 @@ export const GOLDEN_SEASONS: Array<{ season: string; date: string }> = [
   { season: "autumn", date: "2025-10-08" },
 ];
 
+/**
+ * The one axis the form goldens are pinned at. Form changes the *outline*, and an
+ * outline is legible at any theme or season, so multiplying the fourteen out over
+ * the matrix would buy fourteen times the bytes for the same regression. One theme,
+ * one season, one scale - and the fixture goldens above already cover the matrix.
+ */
+export const FORM_GOLDEN_THEME: ThemeName = "ink";
+export const FORM_GOLDEN_SEASON = "summer";
+
 export interface GoldenCase {
-  fixture: string;
+  /**
+   * Test label and file stem: a gallery fixture's name, or `form-<form>` for one
+   * of the crafted accounts. Prefixed so the two families can never collide on a
+   * file name, and so the prune step in `update-goldens.ts` reads honestly.
+   */
+  name: string;
+  /** The form this case exists to draw, for the cases that exist to draw one. */
+  form?: FormName;
   theme: ThemeName;
   season: string;
   /** File name only; joined against GOLDEN_DIR by the caller. */
   file: string;
   date: string;
   animate: boolean;
+  /** Resolved lazily: neither caller needs the histories it is not rendering. */
+  history: () => NormalizedHistory;
 }
 
 export function goldenCases(): GoldenCase[] {
@@ -57,12 +77,13 @@ export function goldenCases(): GoldenCase[] {
     for (const theme of GOLDEN_THEMES) {
       for (const { season, date } of GOLDEN_SEASONS) {
         cases.push({
-          fixture,
+          name: fixture,
           theme,
           season,
           file: `${fixture}.${theme}.${season}.svg`,
           date,
           animate: false,
+          history: () => loadFixture(fixture),
         });
       }
     }
@@ -77,15 +98,36 @@ export function goldenCases(): GoldenCase[] {
     for (const fixture of GALLERY_FIXTURES) {
       for (const theme of GOLDEN_THEMES) {
         cases.push({
-          fixture,
+          name: fixture,
           theme,
           season: summer.season,
           file: `${fixture}.${theme}.${summer.season}.anim.svg`,
           date: summer.date,
           animate: true,
+          history: () => loadFixture(fixture),
         });
       }
     }
   }
+
+  // One golden per form. Only four of the fourteen forms are reachable from the
+  // ten fixtures (gate-4.md), so without these the regression net covers four
+  // silhouettes and guesses at ten - the same hole the taste gate had to route
+  // around. The accounts are the crafted ones, which go through `selectForm`
+  // exactly as a real account does; `form.test.ts` is what asserts each still
+  // lands on its rung, so a golden here can never be the only thing claiming it.
+  for (const { form, history } of FORM_CASES) {
+    cases.push({
+      name: `form-${form}`,
+      form,
+      theme: FORM_GOLDEN_THEME,
+      season: FORM_GOLDEN_SEASON,
+      file: `form-${form}.${FORM_GOLDEN_THEME}.${FORM_GOLDEN_SEASON}.svg`,
+      date: FORM_CASE_DATE,
+      animate: false,
+      history: () => history,
+    });
+  }
+
   return cases;
 }
