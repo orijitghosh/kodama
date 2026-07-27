@@ -72,6 +72,48 @@ export type FormName = (typeof FORM_NAMES)[number];
 export const DEFAULT_FORM: FormName = "moyogi";
 
 /**
+ * How the spoken biography names a style.
+ *
+ * The Japanese name and then a gloss, because neither alone is honest: the
+ * Japanese name is what everything else in this project calls the style, and a
+ * screen-reader user who does not have bonsai vocabulary gets nothing from it
+ * on its own. Species took the same shape - a `label` on the record, English,
+ * outside the locale tables - and this follows it rather than inventing a
+ * second convention (D-011: no font metrics, so nothing here is a layout).
+ *
+ * Not localised, for the same reason `Species.label` is not: these are proper
+ * names of a classification, and a `ja` table would be translating them back
+ * into the language they came from.
+ */
+export const FORM_LABELS: Record<FormName, string> = {
+  kokedama: "kokedama, a bound moss ball",
+  ikadabuki: "ikadabuki, a raft",
+  yoseUe: "yose-ue, a forest planting",
+  bunjin: "bunjin, a literati",
+  sekijoju: "seki-joju, root over rock",
+  kabudachi: "kabudachi, a clump",
+  sokan: "sokan, a twin trunk",
+  chokkan: "chokkan, a formal upright",
+  hokidachi: "hokidachi, a broom",
+  neagari: "neagari, an exposed root",
+  fukinagashi: "fukinagashi, a windswept",
+  sharimiki: "sharimiki, deadwood",
+  shakan: "shakan, a slant",
+  moyogi: "moyogi, an informal upright",
+};
+
+/**
+ * Forms whose substrate is not a pot.
+ *
+ * A fact about the style rather than about the drawing, which is why it sits
+ * here and not in `form-marks.ts` where it was first written: the biography has
+ * to know it too, and it must not have to import the draw layer to find out.
+ */
+export function replacesPot(form: FormName): boolean {
+  return form === "kokedama";
+}
+
+/**
  * Below this much *evidence*, nobody gets a style claim.
  *
  * This was a maturity floor of 5 until the corpus was measured, and it was wrong

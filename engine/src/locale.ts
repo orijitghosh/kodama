@@ -9,6 +9,7 @@
  * the tree rather than the word "image".
  */
 
+import { FORM_LABELS, replacesPot } from "./form.js";
 import { isClassic, speciesByName, DEFAULT_SPECIES } from "./species.js";
 import type { Species } from "./species.js";
 import type { Season, TreeFacts } from "./types.js";
@@ -150,8 +151,20 @@ export function biographyFor(
     // Chosen, so it claims nothing about the account - the alternate plants are a
     // URL option, not a reading of anybody's languages.
     classic ? "" : `Drawn as a ${species.label}, which is a choice of the owner's.`,
+    // Unlike the species, the form is *derived* - so it is stated as something
+    // the history says rather than something the owner picked, and it is stated
+    // at all because it is the one thing C.4 changed about the outline. A
+    // sighted reader can see that this tree slants and the last one did not; a
+    // screen-reader user could not, until this line.
+    `Styled as ${FORM_LABELS[facts.form]}, read from how this account works.`,
     `Season: ${labels.seasons[facts.season]}.`,
-    `Maturity level ${String(facts.maturity)} of 13, in a ${facts.potTier} pot.`,
+    // The moss-ball forms have no pot at all (`replacesPot`), and saying
+    // "in a plastic pot" over a picture with no pot in it is exactly the
+    // failure this docblock warns about: it hands a screen-reader user a
+    // different tree than a sighted reader gets.
+    replacesPot(facts.form)
+      ? `Maturity level ${String(facts.maturity)} of 13, bound in a moss ball rather than potted.`
+      : `Maturity level ${String(facts.maturity)} of 13, in a ${facts.potTier} pot.`,
     "Every element is recomputable from public history; nothing here is random or purchasable.",
   ]
     .filter((line) => line !== "")

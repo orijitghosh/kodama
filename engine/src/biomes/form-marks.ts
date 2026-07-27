@@ -23,7 +23,6 @@ import type { Skeleton, SkeletonNode } from "../skeleton.js";
 import { streamsFor } from "../rng.js";
 import { circle, el, group, PathBuilder, path } from "../svg.js";
 import { slot } from "../themes.js";
-import type { FormName } from "../form.js";
 import type { TreeFacts } from "../types.js";
 
 /**
@@ -416,11 +415,6 @@ export function drawMossBall(facts: TreeFacts, pot: PotBox, seed: number): strin
 // ---------------------------------------------------------------------------
 // Dispatch
 // ---------------------------------------------------------------------------
-
-/** Forms whose substrate is not a pot. */
-export function replacesPot(form: FormName): boolean {
-  return form === "kokedama";
-}
 
 /**
  * The ground-level marks, drawn between the substrate and the branch strokes.

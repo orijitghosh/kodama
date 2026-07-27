@@ -18,6 +18,8 @@ import { tintRotation } from "../src/themes.js";
 import { THEME_NAMES, SCALES } from "../src/types.js";
 import type { LangShare } from "../src/types.js";
 import type { RenderOptions, Scale } from "../src/types.js";
+import { FORM_LABELS, FORM_NAMES } from "../src/form.js";
+import { FORM_CASES, FORM_CASE_DATE } from "./helpers/form-cases.js";
 import { allFixtures, FIXTURE_ANCHOR_DATE, loadFixture } from "./helpers/fixtures.js";
 import { historyWith } from "./helpers/history.js";
 
@@ -407,6 +409,31 @@ describe("accessibility", () => {
   it("states that the tree is recomputable", () => {
     const biography = biographyFor(treeFacts(loadFixture("whale"), DATE), "en");
     expect(biography.desc).toMatch(/recomputable/);
+  });
+
+  it("names the form, because the outline is the one thing that cannot be heard", () => {
+    // A sighted reader can see that this tree slants and the last one did not.
+    // Every form must be sayable, so the label table can never fall behind the
+    // catalogue - which is the failure mode a spot check would miss.
+    for (const { form, history } of FORM_CASES) {
+      const facts = treeFacts(history, FORM_CASE_DATE);
+      expect(facts.form, "the case drifted off its rung").toBe(form);
+      expect(biographyFor(facts, "en").desc).toContain(FORM_LABELS[form]);
+    }
+    expect(Object.keys(FORM_LABELS).sort()).toEqual([...FORM_NAMES].sort());
+  });
+
+  it("does not put a moss ball in a pot", () => {
+    // `replacesPot` styles draw no pot at all, so the pot tier is a claim about
+    // a thing that is not in the picture.
+    const kokedama = FORM_CASES.find((c) => c.form === "kokedama");
+    const potted = FORM_CASES.find((c) => c.form === "shakan");
+    const ballDesc = biographyFor(treeFacts(kokedama!.history, FORM_CASE_DATE), "en").desc;
+    const potDesc = biographyFor(treeFacts(potted!.history, FORM_CASE_DATE), "en").desc;
+
+    expect(ballDesc).toMatch(/bound in a moss ball/);
+    expect(ballDesc).not.toMatch(/pot\b/);
+    expect(potDesc).toMatch(/pot\./);
   });
 });
 

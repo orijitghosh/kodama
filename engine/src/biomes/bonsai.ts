@@ -9,7 +9,8 @@
 
 import { BASE_X, BASE_Y, buildSkeleton } from "../skeleton.js";
 import { geometryFor } from "../form-geometry.js";
-import { drawGroundMarks, drawMossBall, drawTrunkMarks, replacesPot } from "./form-marks.js";
+import { drawGroundMarks, drawMossBall, drawTrunkMarks } from "./form-marks.js";
+import { replacesPot } from "../form.js";
 import type { Pad, Skeleton, SkeletonNode } from "../skeleton.js";
 import { seedFromLogin, streamsFor } from "../rng.js";
 import type { Rng } from "../rng.js";
