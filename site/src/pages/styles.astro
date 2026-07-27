@@ -1,0 +1,274 @@
+---
+import {
+  DEFAULT_FORM,
+  FORM_CASES,
+  FORM_CASE_DATE,
+  FORM_LABELS,
+  FORM_LADDER,
+  FORM_MIN_ACTIVE_WEEKS,
+} from "../form-specimens";
+
+import Page from "../layouts/Page.astro";
+
+/**
+ * The style reference (PROPOSAL-VARIETALS §8, Phase D): every form, what it reads
+ * as, and the order the ladder asks the questions in.
+ *
+ * Built from the engine's own data, not from prose about it. `FORM_LADDER` is the
+ * live ladder in priority order and each rung carries its own `reads` sentence, so
+ * a threshold move or a re-ordering updates this page without anybody editing it.
+ * The one thing written by hand is the "what it draws" column, because that is a
+ * description of a picture and the engine has no opinion about English.
+ *
+ * Every specimen is rendered at build time from the crafted account for that form,
+ * and `assertSelects` re-runs the ladder over each one - so this page cannot show a
+ * silhouette under a name the ladder would no longer give it. That is the same
+ * refusal `gate-4.ts` makes, for the same reason: a reference that documents a
+ * style nobody can be assigned is worse than no reference.
+ */
+
+/** What the mark or the skeleton actually does, per form. Prose, deliberately. */
+const DRAWS: Record<string, string> = {
+  kokedama: "No pot at all: the roots are bound into a moss ball.",
+  ikadabuki: "Several trunks rising off one fallen stem, like a raft.",
+  yoseUe: "A stand of graded trunks in one tray - a forest, not a tree.",
+  bunjin: "A long sparse trunk with the foliage gathered high.",
+  sekijoju: "Roots gripping a stone. The receipt names the repository it stands for.",
+  kabudachi: "A clump of trunks from a single root mass.",
+  sokan: "Two trunks from one base, one clearly the elder.",
+  chokkan: "A formal upright: straight axis, no lean, symmetric crown.",
+  hokidachi: "A broom - the trunk splits high into an even fan.",
+  neagari: "Roots flared clear of the soil, a long life above ground.",
+  fukinagashi: "Every branch swept to one side, as if by a prevailing wind.",
+  sharimiki: "A bleached deadwood vein running the trunk beside the living wood.",
+  shakan: "A slant: the whole tree leaning off the vertical.",
+  moyogi: "The informal upright - gentle curves, and the tree kodama has always drawn.",
+};
+
+const byName = new Map(FORM_CASES.map((one) => [one.form, one]));
+
+/**
+ * A specimen per style, referenced as a file rather than inlined.
+ *
+ * Fourteen `<svg>` elements in one document do not show fourteen trees - the
+ * unscoped `svg{--kd-*}` rule inside each one repaints all of them. See the
+ * endpoint in `style-specimen/[form].svg.ts`, which is also where the build-time
+ * assertion that each case still selects its form lives.
+ */
+/**
+ * `FORM_LABELS` is "<name>, <gloss>" by construction - the biography needs both in
+ * one string. The heading here already says the name, so it takes the gloss alone,
+ * split at the first comma rather than by stripping the form name: two of the
+ * labels romanise with a hyphen (`yose-ue`, `seki-joju`) and do not begin with the
+ * `FormName` spelling.
+ */
+const glossOf = (label: string): string => label.slice(label.indexOf(", ") + 2);
+
+const SPECIMENS = FORM_CASES.map((one) => ({
+  form: one.form,
+  gloss: glossOf(FORM_LABELS[one.form]),
+  reads: one.reads,
+  draws: DRAWS[one.form] ?? "",
+  src: `/style-specimen/${one.form}.svg`,
+}));
+
+/**
+ * The ladder as the reader meets it: the seedling case, then the rungs in the
+ * order they are actually asked, then the fallback. `FORM_LADDER` is already in
+ * priority order, so this is a read of the engine and not a retelling.
+ */
+const RUNGS = FORM_LADDER.map((rung, i) => ({
+  position: String(i + 1),
+  form: rung.name,
+  label: FORM_LABELS[rung.name],
+  reads: rung.reads,
+}));
+
+const seedling = byName.get("kokedama");
+const fallback = byName.get(DEFAULT_FORM);
+---
+
+<Page
+  title="kodama - the fourteen styles"
+  description="Every bonsai style kodama draws, what it says about an account, and the order the ladder asks its questions in."
+>
+  <h1>The fourteen styles</h1>
+  <p class="tagline">
+    Your tree's <strong>outline</strong> is derived, like everything else here.
+    Not the ornaments hung on it - the shape of the thing. These are the fourteen
+    shapes it can take and the reading behind each one.
+  </p>
+
+  <h2>How one gets chosen</h2>
+  <p>
+    The styles are a <strong>ladder, not a score</strong>. Each rung asks one
+    question about how an account works, in the order below, and <strong
+      >the first rung that matches wins</strong
+    >. Nothing is weighted against anything else and there is no total to
+    maximise.
+  </p>
+  <p>
+    Two rungs sit outside the ladder. Below <strong
+      >{FORM_MIN_ACTIVE_WEEKS} active weeks</strong
+    > there is not enough evidence to claim anything, and the tree is drawn as a
+    moss ball. Past that floor, an account that matches no rung gets{" "}
+    <code>{DEFAULT_FORM}</code> - which is not a failure state, it is the tree
+    kodama drew before styles existed.
+  </p>
+
+  <table id="ladder">
+    <caption class="note">
+      Priority order, read straight off <code>FORM_LADDER</code>. Re-ordering the
+      engine re-orders this table.
+    </caption>
+    <thead>
+      <tr>
+        <th scope="col">#</th>
+        <th scope="col">Style</th>
+        <th scope="col">Reads as</th>
+      </tr>
+    </thead>
+    <tbody>
+      {
+        RUNGS.map((rung) => (
+          <tr>
+            <td class="rule">{rung.position}</td>
+            <th scope="row">
+              <a href={`#${rung.form}`}>{rung.form}</a>
+            </th>
+            <td class="rule">{rung.reads}</td>
+          </tr>
+        ))
+      }
+    </tbody>
+  </table>
+
+  <h2>The styles</h2>
+  <p class="note">
+    One specimen each, drawn at {FORM_CASE_DATE} from an account written to be the
+    shortest history that lands on that rung. Every one goes through the same
+    selector a real account does.
+  </p>
+
+  {
+    SPECIMENS.map((one) => (
+      <section class="style" id={one.form}>
+        <h3>{one.form}<span class="gloss"> - {one.gloss}</span></h3>
+        <p class="reads">{one.reads}</p>
+        <p class="rule">{one.draws}</p>
+        <div class="specimen">
+          <img
+            src={one.src}
+            alt={`A bonsai drawn in the ${one.form} style: ${one.draws}`}
+            width="830"
+            height="420"
+            loading="lazy"
+            decoding="async"
+          />
+        </div>
+      </section>
+    ))
+  }
+
+  <h2>What this is not</h2>
+  <p>
+    A style is <strong>a reading, not a ranking</strong>. There is no best one and
+    no rare one worth chasing: <code>{seedling?.form}</code> is not a lower score
+    than <code>{fallback?.form}</code>, and a forest is not worth more than a
+    slant. The ladder is ordered by how <em>specific</em> a claim is, so the
+    narrow structural questions get asked before the broad ones about rhythm -
+    that is all the order means.
+  </p>
+  <p>
+    Nothing here is purchasable, and nothing is random. The style is recomputed
+    from public history every time the tree is drawn, so it can change when the
+    way you work changes. Open the{" "}
+    <a href="/tree/sindresorhus">receipts for any account</a> to see the figures
+    behind its own tree, or the <a href="/grammar">growth grammar</a> for the
+    thirteen signals that fill the shape in.
+  </p>
+</Page>
+
+<style>
+  h2 {
+    margin-top: 2.5rem;
+    font-size: 1.1rem;
+  }
+
+  table {
+    width: 100%;
+    margin-top: 1.5rem;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+
+  caption {
+    margin-bottom: 0.6rem;
+    text-align: left;
+  }
+
+  th,
+  td {
+    padding: 0.6rem 0.5rem;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid var(--border);
+  }
+
+  thead th {
+    font-size: 0.8rem;
+    color: var(--muted);
+    text-transform: lowercase;
+    letter-spacing: 0.04em;
+  }
+
+  tbody th {
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .rule {
+    color: var(--muted);
+  }
+
+  .style {
+    margin-top: 2.5rem;
+    scroll-margin-top: 1rem;
+  }
+
+  .style h3 {
+    margin: 0;
+    font-size: 1rem;
+  }
+
+  .gloss {
+    color: var(--muted);
+    font-weight: 400;
+  }
+
+  .reads {
+    margin: 0.3rem 0 0;
+  }
+
+  .style .rule {
+    margin: 0.2rem 0 0;
+    font-size: 0.9rem;
+  }
+
+  .specimen {
+    display: flex;
+    justify-content: center;
+    margin: 1rem 0 0;
+  }
+
+  .specimen img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  @media (max-width: 40rem) {
+    tbody th {
+      white-space: normal;
+    }
+  }
+</style>

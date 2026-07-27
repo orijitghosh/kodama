@@ -11,6 +11,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./form-cases": {
+      "types": "./dist/form-cases.d.ts",
+      "import": "./dist/form-cases.js"
+    },
     "./fixtures/index.json": "./fixtures/index.json",
     "./fixtures/*.json": "./fixtures/*.json"
   },

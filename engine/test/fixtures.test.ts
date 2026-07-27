@@ -5,6 +5,8 @@ import { normalizedHistorySchema } from "./history-schema.js";
 import { assertHistory, KodamaSchemaError } from "../src/validate.js";
 import { daysBetween, isoWeekOf, isoWeekStart } from "../src/date.js";
 import { loadFixture, FIXTURE_NAMES, FIXTURE_ANCHOR_DATE } from "./helpers/fixtures.js";
+import { SYNTHETIC_ANCHOR_DATE } from "../src/history-builder.js";
+import { FORM_CASE_DATE } from "../src/form-cases.js";
 
 describe("committed fixtures", () => {
   it("covers every fixture named in SPEC-ENGINE §7", () => {
@@ -198,5 +200,16 @@ describe("week labels round-trip through the date layer", () => {
         expect(isoWeekOf(isoWeekStart(week.w))).toBe(week.w);
       }
     }
+  });
+});
+
+describe("the synthetic anchor tracks the fixture anchor", () => {
+  it("keeps src/ disk-free without letting the two dates drift", () => {
+    // `src/` reads no files, so the crafted accounts in `src/form-cases.ts` carry
+    // the anchor as a literal instead of importing it from fixtures/index.json.
+    // That duplication is only safe while something fails when it stops being
+    // true, and this is that something.
+    expect(SYNTHETIC_ANCHOR_DATE).toBe(FIXTURE_ANCHOR_DATE);
+    expect(FORM_CASE_DATE).toBe(FIXTURE_ANCHOR_DATE);
   });
 });

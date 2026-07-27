@@ -74,11 +74,13 @@ export {
  */
 export {
   DEFAULT_FORM,
+  FORM_LABELS,
   FORM_LADDER,
   FORM_MIN_ACTIVE_WEEKS,
   FORM_NAMES,
   FORM_THRESHOLDS,
   mayRestyle,
+  replacesPot,
   selectForm,
 } from "./form.js";
 export type { FormFacts, FormInput, FormName, FormRung } from "./form.js";
