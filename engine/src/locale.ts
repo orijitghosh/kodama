@@ -111,6 +111,21 @@ export function fruitNoun(species: Species, count: number): string {
 }
 
 /**
+ * The indefinite article a whole number takes, from how the number is said.
+ *
+ * Three cases take "an", and only three: a leading 8 ("eight", "eighty",
+ * "eight hundred" - any magnitude), and the teens 11 and 18. Nothing else does.
+ * 118 is "one hundred eighteen", so it is "a"; only the bare 11 and 18 begin
+ * with their own vowel sound. No Intl, no locale - the digits are read the same
+ * way on every host.
+ */
+export function articleForNumber(n: number): string {
+  const digits = String(Math.abs(Math.floor(n)));
+  if (digits.startsWith("8")) return "an";
+  return digits === "11" || digits === "18" ? "an" : "a";
+}
+
+/**
  * "Three-year tree, 1 247 commits, in blossom: 214-day streak".
  *
  * The biography may only name what the biome actually draws. TreeFacts computes
@@ -139,7 +154,9 @@ export function biographyFor(
       ? "A seedling"
       : years === 1
         ? `A one-year ${plant}`
-        : `A ${String(years)}-year ${plant}`;
+        : // "An 8-year tree", not "A 8-year tree" - the numeral is read aloud,
+          // so the article follows how the number is said, not how it is spelt.
+          `${articleForNumber(years) === "an" ? "An" : "A"} ${String(years)}-year ${plant}`;
 
   const clauses: string[] = [`${age}, ${String(commits)} ${labels.commits}`];
 
