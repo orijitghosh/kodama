@@ -93,21 +93,26 @@ For every image:
 
 ## Checklist
 
-### The shapes
+### The shapes - walked 2026-07-27, pass
 
-- [ ] Each of the fourteen reads as a deliberate silhouette rather than as a tree
+- [x] Each of the fourteen reads as a deliberate silhouette rather than as a tree
       that came out wrong.
-- [ ] The multi-trunk four - `sokan` (twin), `kabudachi` (clump), `yoseUe` (forest),
-      `ikadabuki` (raft) - are distinguishable from each other. **Known weak set**:
-      they share a partitioned attractor cloud and differ only in base offsets and
-      reach. If a pair fails, the fix is the plan's spacing, not a new mechanism.
-- [ ] `chokkan` (formal upright) does not just read as `moyogi` with a straight
-      stem. If it does, the honest answer may be that the metronome deserves a
-      different signal rather than a straighter trunk.
-- [ ] `bunjin` reads as literati - tall, bare, foliage at the apex - and not as a
-      tree that lost its pads.
-- [ ] `fukinagashi` and `shakan` are distinguishable: windswept is a lean with the
-      crown dragged, slant is a lean with the crown intact.
+- [x] The multi-trunk four - `sokan` (twin), `kabudachi` (clump), `yoseUe` (forest),
+      `ikadabuki` (raft) - are distinguishable from each other.
+- [x] `chokkan` (formal upright) does not just read as `moyogi` with a straight stem.
+- [x] `bunjin` reads as literati.
+- [x] `fukinagashi` and `shakan` are distinguishable.
+
+The two defects under "Measured before the walk" were put to the owner before this
+pass and **accepted as drawn**: the multi-trunk four stay short, and `bunjin` stays
+shorter and wider than the style nominally wants. First read was that the sheet
+looked odd in places; second read, unprompted, was that the forms had grown on him
+and are fine as they are.
+
+That is a deliberate decision and not an oversight, which matters because the
+measurements are still sitting in this file and would otherwise read as open work.
+If a later session wants to lift the multi-trunk crowns, it is re-opening a walked
+decision and needs a new verdict, not a bug fix.
 
 ### The marks
 
@@ -126,10 +131,11 @@ For every image:
 
 ### The gallery re-walk (this is the Gate #1 and #2 request)
 
-- [ ] Sheet 4: each of the six is still postable with its new form.
-- [ ] `ghost` and `newcomer` as moss balls - a seedling in a moss ball should read
+- [x] Sheet 4: each of the six is still postable with its new form. Owner, 2026-07-27:
+      "this part actually looks great."
+- [x] `ghost` and `newcomer` as moss balls - a seedling in a moss ball should read
       as *new*, not as *broken*.
-- [ ] `maintainer` and `veteran` with the stone - the stone names a real repository
+- [x] `maintainer` and `veteran` with the stone - the stone names a real repository
       in the receipt, and an account with no anchor never gets one.
 - [ ] No fixture renders `moyogi` any more. Decide whether that is acceptable for
       the gallery, and if not, whether the fix is a new fixture or a threshold.
@@ -145,4 +151,31 @@ Drift found before C.4 started, unrelated to form, still unrecorded:
 
 ## Verdict
 
-_Unwritten._
+**Pass on the drawing, 2026-07-27, partial.** Both shape sheets and the gallery
+sheet are approved. Recorded in the owner's own terms: the six gallery fixtures
+"actually look great", and on a second look at the fourteen, "they are growing on
+me, I think they are fine as they are right now".
+
+The interesting part of this gate is that the second look reversed the first. The
+initial report was that the fourteen "look weird at times", and measurement then
+found two real defects - short multi-trunk crowns and a `bunjin` that is neither
+tall nor thin. Neither was what the owner had reacted to, and on re-reading the
+sheet the reaction went away on its own. Nothing was changed to earn this pass,
+which is why the acceptance is written down explicitly above rather than left as
+an unticked box next to a measurement.
+
+### Still open
+
+This verdict covers the pictures on sheets 1, 2 and 4. It does not cover:
+
+- **Sheet 3**, the four marks at compact scale. Not reported on.
+- **The moss ball is clipped by the card.** `kokedama` puts the ball at cy 407 with
+  r 32.4, so it reaches y 439 against a card that ends at 420 - about 19px is cut
+  off by the bottom edge. Visible in the `ghost` and `newcomer` images. The pot
+  legitimately overflows downward (a stone pot reaches 442) so this may be the same
+  accepted overflow, but the pot is a flat base and a sphere reads differently when
+  its bottom is sliced. Needs a decision, not an assumption.
+- **No fixture renders `moyogi`.** A coverage question, not a drawing one.
+- **Gates #1 and #2 themselves.** 48 assertions, 24 images each, across every theme
+  and season. What has been walked is six fixtures at ink and summer. Re-pointing
+  the pinned artifacts on that basis would be forging the rest of the approval.
