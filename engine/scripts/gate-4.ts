@@ -94,6 +94,46 @@ interface Card {
 const sheets: Array<{ title: string; note: string; cards: Card[] }> = [];
 let count = 0;
 
+/**
+ * Pins a render to one colour scheme.
+ *
+ * Every kodama theme is a *pair*: `paletteStyles` emits the light palette in the
+ * base `svg{}` rule and the dark one inside `@media(prefers-color-scheme:dark)`,
+ * so which of the two a reader sees is decided by their operating system and not
+ * by the `theme=` they asked for. That is right for the product and fatal for a
+ * contact sheet - an `<img>` resolves the media query against the viewer's OS, so
+ * a sheet captioned "paper" renders in ink on a machine set to dark mode, and the
+ * one box this sheet exists to answer ("does the deadwood vein survive a pale
+ * ground?") silently cannot be answered.
+ *
+ * This is trap #1 wearing a different hat: the document looked like it was showing
+ * fourteen forms on two grounds, and was showing them on whichever single ground
+ * the reader's laptop happened to be set to.
+ *
+ * So the gate pins each sheet to the scheme it claims. Stripping the query leaves
+ * the light palette; hoisting it over the base rule leaves the dark one. The
+ * shipped SVG is untouched - this is the gate sheet forcing a scheme so that a
+ * human can judge one, and it throws rather than guess if `paletteStyles` ever
+ * changes shape under it.
+ */
+const DARK_QUERY = /@media\(prefers-color-scheme:dark\)\{svg\{([^}]*)\}\}/;
+
+function forceScheme(svg: string, scheme: "light" | "dark"): string {
+  const match = DARK_QUERY.exec(svg);
+  if (match === null) {
+    throw new Error(
+      "no prefers-color-scheme block found - paletteStyles changed shape, and this sheet " +
+        "would go back to showing whichever scheme the reader's OS is set to",
+    );
+  }
+  const stripped = svg.replace(DARK_QUERY, "");
+  if (scheme === "light") return stripped;
+
+  const hoisted = stripped.replace(/svg\{[^}]*\}/, `svg{${match[1] ?? ""}}`);
+  if (hoisted === stripped) throw new Error("could not find the base svg{} rule to hoist over");
+  return hoisted;
+}
+
 function write(file: string, svg: string): void {
   writeFileSync(resolve(outDir, file), svg, "utf8");
   count += 1;
@@ -102,9 +142,10 @@ function write(file: string, svg: string): void {
 // --- sheets one and two: the fourteen forms, on ink and on paper ------------
 
 for (const theme of ["ink", "paper"] as ThemeName[]) {
+  const scheme = theme === "ink" ? "dark" : "light";
   const cards: Card[] = [];
   for (const one of FORM_CASES) {
-    const svg = render(one.history, SUMMER, { ...base, theme });
+    const svg = forceScheme(render(one.history, SUMMER, { ...base, theme }), scheme);
     const file = `form-${one.form}-${theme}.svg`;
     write(file, svg);
     cards.push({
@@ -118,8 +159,8 @@ for (const theme of ["ink", "paper"] as ThemeName[]) {
     title: `The fourteen forms - ${theme} - summer`,
     note:
       theme === "paper"
-        ? "Day theme. The deadwood vein is drawn in `snow`, the one slot pale in both schemes - this is the sheet where it has to survive a pale background."
-        : "Every case is maturity 5 except the moss ball (3) and the windswept (6), so what differs between these is the form and not the size.",
+        ? "Day theme, <strong>pinned to the light palette</strong> so it stays pale whatever your OS is set to. The deadwood vein is drawn in `snow`, the one slot pale in both schemes - this is the sheet where it has to survive a pale background. Note that ink and paper share both palettes and differ only in the night layer, so for the twelve cases with no fireflies these images are the light half of the same tree, not a second theme."
+        : "Pinned to the dark palette. Every case is maturity 5 except the moss ball (3) and the windswept (6), so what differs between these is the form and not the size.",
     cards,
   });
 }
@@ -132,7 +173,10 @@ for (const theme of ["ink", "paper"] as ThemeName[]) {
     const one = FORM_CASES.find((each) => each.form === form);
     if (one === undefined) throw new Error(`no case for ${form}`);
     for (const theme of ["ink", "paper"] as ThemeName[]) {
-      const svg = render(one.history, SUMMER, { ...base, theme, scale: "compact" });
+      const svg = forceScheme(
+        render(one.history, SUMMER, { ...base, theme, scale: "compact" }),
+        theme === "ink" ? "dark" : "light",
+      );
       const file = `mark-${form}-${theme}.svg`;
       write(file, svg);
       cards.push({ file, caption: `${form} - ${theme} - compact`, width: 420, height: 160 });
@@ -153,7 +197,7 @@ for (const theme of ["ink", "paper"] as ThemeName[]) {
   const cards: Card[] = [];
   for (const name of GALLERY_FIXTURES) {
     const history = loadFixture(name);
-    const svg = render(history, SUMMER, base);
+    const svg = forceScheme(render(history, SUMMER, base), "dark");
     const file = `fixture-${name}.svg`;
     write(file, svg);
     cards.push({
