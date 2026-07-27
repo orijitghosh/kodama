@@ -12,7 +12,7 @@
 import { FORM_LABELS, replacesPot } from "./form.js";
 import { isClassic, speciesByName, DEFAULT_SPECIES } from "./species.js";
 import type { Species } from "./species.js";
-import type { Season, TreeFacts } from "./types.js";
+import type { PotTier, Season, TreeFacts } from "./types.js";
 
 export interface Labels {
   commits: string;
@@ -77,6 +77,21 @@ export function labelsFor(locale: string): Labels {
   const primary = locale.split("-")[0]?.toLowerCase() ?? "en";
   return TABLES[primary] ?? en;
 }
+
+/**
+ * The indefinite article each pot tier takes.
+ *
+ * Written out per tier rather than derived from a vowel rule: the set is closed
+ * and five long, and a rule would be a guess about tiers that do not exist yet.
+ * A new tier is a compile error here, which is where the choice belongs.
+ */
+const POT_TIER_ARTICLE: Record<PotTier, string> = {
+  plastic: "a",
+  clay: "a",
+  glazed: "a",
+  antique: "an",
+  stone: "a",
+};
 
 export interface Biography {
   title: string;
@@ -164,7 +179,7 @@ export function biographyFor(
     // different tree than a sighted reader gets.
     replacesPot(facts.form)
       ? `Maturity level ${String(facts.maturity)} of 13, bound in a moss ball rather than potted.`
-      : `Maturity level ${String(facts.maturity)} of 13, in a ${facts.potTier} pot.`,
+      : `Maturity level ${String(facts.maturity)} of 13, in ${POT_TIER_ARTICLE[facts.potTier]} ${facts.potTier} pot.`,
     "Every element is recomputable from public history; nothing here is random or purchasable.",
   ]
     .filter((line) => line !== "")
