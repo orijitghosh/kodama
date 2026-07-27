@@ -167,7 +167,9 @@ for (const theme of ["ink", "paper"] as ThemeName[]) {
     title: "The six gallery fixtures, as they now render - ink - summer",
     note:
       "These are the real accounts, and this is the sheet gates #1 and #2 are being asked to " +
-      "re-approve. Six of the ten fixtures select a form; the rest are unchanged moyogi.",
+      "re-approve. <strong>All ten fixtures select a form and not one of them is moyogi</strong> " +
+      "- three moss balls, three metronomes, three stones and one slant. The fallback has no " +
+      "fixture, so the tree that shipped is drawn nowhere in this gate.",
     cards,
   });
 }

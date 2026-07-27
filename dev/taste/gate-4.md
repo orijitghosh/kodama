@@ -26,9 +26,17 @@ tree. Everything before it was volume, age or costume.
 - **Four draw-layer marks** (`engine/src/biomes/form-marks.ts`): a bleached deadwood
   vein on the trunk, roots flaring clear of the soil, a stone the roots grip, and a
   bound moss ball in place of the pot.
-- **Six of the ten fixtures now select a form** - ghost, newcomer and spammer take
-  the moss ball; dormant, maintainer and veteran take the stone. That is why the
-  pinned artifacts moved.
+- **All ten fixtures select a form, and not one of them is moyogi.** Three moss
+  balls (ghost, newcomer, spammer), three metronomes (grinder, whale,
+  streak-broken), three stones (maintainer, veteran, dormant) and one slant
+  (awakening). That is why every pinned artifact moved.
+
+  Worth sitting with before the verdict: **the fallback has no fixture**, so the
+  tree that actually shipped is drawn nowhere in this gate except as one of the
+  fourteen crafted accounts. The gallery no longer contains the default. Whether
+  that is the fixtures being unrepresentative or the ladder being too eager is a
+  question this sheet can raise but not answer - the calibration run over 159 real
+  accounts is the thing that can, and it put every style inside the 3.0-15.2% band.
 
 ## The accounts on the sheet
 
@@ -105,6 +113,8 @@ For every image:
       as *new*, not as *broken*.
 - [ ] `maintainer` and `veteran` with the stone - the stone names a real repository
       in the receipt, and an account with no anchor never gets one.
+- [ ] No fixture renders `moyogi` any more. Decide whether that is acceptable for
+      the gallery, and if not, whether the fix is a new fixture or a threshold.
 - [ ] On a pass, re-render gate-1 and gate-2 from v3 and record the verdicts in
       their own files, not here.
 
