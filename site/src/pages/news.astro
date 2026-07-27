@@ -1,0 +1,106 @@
+---
+import Page from "../layouts/Page.astro";
+import { publishedNews } from "../news";
+
+/**
+ * What changed, for readers rather than for developers.
+ *
+ * The entries live in `src/news.ts` so they stay uniform and can be surfaced
+ * elsewhere later. `publishedNews()` filters on a `published` flag, because an
+ * entry announcing a change is written in the commit that makes the change and
+ * would otherwise be live on the site before the deploy that makes it true.
+ *
+ * Deliberately not a changelog. An entry earns its place by changing something a
+ * person can see on their own tree.
+ */
+const entries = publishedNews();
+
+const MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+/** No `toLocaleDateString`: it varies with the host's ICU build, same as the engine's rule. */
+function readable(iso: string): string {
+  const [y, m, d] = iso.split("-");
+  const month = MONTHS[Number(m) - 1] ?? m ?? "";
+  return `${String(Number(d))} ${month} ${y ?? ""}`;
+}
+---
+
+<Page
+  title="kodama - news"
+  description="What has changed about kodama trees, and why yours might look different."
+>
+  <h1>News</h1>
+  <p class="tagline">
+    Changes you can see on your own tree. Not a release log - if it did not
+    change a picture, it is not here.
+  </p>
+
+  {
+    entries.length === 0 && (
+      <p class="note">
+        Nothing yet. The first entry lands with the next change to how trees are
+        drawn.
+      </p>
+    )
+  }
+
+  {
+    entries.map((entry) => (
+      <article class="entry">
+        <h2>{entry.title}</h2>
+        <p class="meta">
+          <time datetime={entry.date}>{readable(entry.date)}</time>
+          {entry.engine !== undefined && <span class="engine"> · engine {entry.engine}</span>}
+        </p>
+        {entry.body.map((para) => (
+          <p>{para}</p>
+        ))}
+        {entry.more !== undefined && (
+          <p class="more">
+            <a href={entry.more.href}>{entry.more.label}</a>
+          </p>
+        )}
+      </article>
+    ))
+  }
+</Page>
+
+<style>
+  .entry {
+    margin-top: 2.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .entry:first-of-type {
+    border-top: none;
+  }
+
+  .entry h2 {
+    margin: 0;
+    font-size: 1.1rem;
+  }
+
+  .meta {
+    margin: 0.3rem 0 1rem;
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+
+  .entry p {
+    max-width: 68ch;
+  }
+</style>
