@@ -1,9 +1,10 @@
 # Taste Gate #4 - form (engine v3)
 
-Status: **awaiting verdict.** The code is written, tested and committed locally;
-gates #1 and #2 are failing on purpose - 48 assertions across all six gallery
-fixtures - because the drawing changed and their approvals were given to engine v2.
-A gate test failure is a re-gate request, never a repoint.
+Status: **passed 2026-07-27, all four sheets.** Gates #1 and #2 were re-pointed the
+same day on their own recorded verdict (`17226e5`), after failing on purpose - 48
+assertions across all six gallery fixtures - because the drawing changed and their
+approvals had been given to engine v2. A gate test failure is a re-gate request,
+never a repoint.
 
 Render the sheet and open it:
 
@@ -114,20 +115,34 @@ measurements are still sitting in this file and would otherwise read as open wor
 If a later session wants to lift the multi-trunk crowns, it is re-opening a walked
 decision and needs a new verdict, not a bug fix.
 
-### The marks
+### The marks - walked 2026-07-27, pass
 
-- [ ] The deadwood vein reads as bleached wood on the trunk, not as a highlight or
+Walked on the re-rendered sheet, after the scheme-pinning fix below. The owner's
+verdict on the whole set, in his words: **"I checked all... all OKAY! approved."**
+A single verdict over the five boxes rather than five separate answers, which is
+why they are ticked together and attributed together.
+
+- [x] The deadwood vein reads as bleached wood on the trunk, not as a highlight or
       a scratch. Check on **paper** especially.
-- [ ] `neagari`'s flare reads as roots lifted clear of the soil. Note the honest
+- [x] `neagari`'s flare reads as roots lifted clear of the soil. Note the honest
       limit: the skeleton is untouched by contract, so the trunk still reaches the
       soil at full girth - there is no void under the tree, and what reads as
       lifted is the flare alone. If that is not enough, say so here.
-- [ ] `sekijoju`'s stone reads as a rock the roots grip, not as a second pot. The
+
+      Approved with that limit standing. The flare alone is accepted as enough;
+      lifting the skeleton later re-opens this, and needs a new verdict.
+- [x] `sekijoju`'s stone reads as a rock the roots grip, not as a second pot. The
       three roots over it are graded in width; an earlier uniform version read as a
       printed triple line.
-- [ ] `kokedama` reads as a bound moss ball. Two flat discs and no gradient, per
+- [x] `kokedama` reads as a bound moss ball. Two flat discs and no gradient, per
       TASTE §1.2.
-- [ ] Sheet 3: all four marks still read at 420x160.
+- [x] Sheet 3: all four marks still read at 420x160.
+
+**The sheet this was walked on is not the sheet the partial verdict was walked
+on.** Sheets 1-3 were re-rendered first, because the document could not answer its
+own paper question - see "The sheet was showing one ground" below. The marks pass
+is therefore the first one taken on a sheet where the pale ground was actually
+pale.
 
 ### The gallery re-walk (this is the Gate #1 and #2 request)
 
@@ -137,24 +152,67 @@ decision and needs a new verdict, not a bug fix.
       as *new*, not as *broken*.
 - [x] `maintainer` and `veteran` with the stone - the stone names a real repository
       in the receipt, and an account with no anchor never gets one.
-- [ ] No fixture renders `moyogi` any more. Decide whether that is acceptable for
+- [x] No fixture renders `moyogi` any more. Decide whether that is acceptable for
       the gallery, and if not, whether the fix is a new fixture or a threshold.
-- [ ] On a pass, re-render gate-1 and gate-2 from v3 and record the verdicts in
-      their own files, not here.
+
+      Owner, 2026-07-27: **"i checked moyogi ones, good fallback."** Accepted as
+      is - **no new fixture and no threshold move.** Read carefully, what was
+      answered is that the fallback tree itself is good, judged on
+      `form-moyogi-ink.svg` and `form-moyogi-paper.svg` from sheets 1 and 2. The
+      coverage half - that the *gallery* contains no moyogi - is accepted on the
+      same breath as the rest of "all OKAY", and is recorded here as accepted
+      rather than as separately argued. If a later session wants a moyogi fixture,
+      it is adding coverage, not fixing a defect.
+- [x] On a pass, re-render gate-1 and gate-2 from v3 and record the verdicts in
+      their own files, not here. Done 2026-07-27 in `17226e5`; see `gate-1.md`
+      and `gate-2.md`.
 
 ### Separately, and pre-existing
 
 Drift found before C.4 started, unrelated to form, still unrecorded:
 
-- [ ] Fireflies gained a `<g class="kd-firefly">` wrapper.
-- [ ] `<desc>` lost `Weather: calm.` and `Plaques on the pot rim: ...`.
+- [ ] Fireflies gained a `<g class="kd-firefly">` wrapper. Still unrecorded, and
+      still nothing to do with form.
+- [x] `<desc>` lost `Weather: calm.` and `Plaques on the pot rim: ...`. Resolved in
+      `d7fc26a`: this was a **fix, not a regression** - neither plaques nor weather
+      are drawn, so naming them handed a screen-reader user a different tree than a
+      sighted one. Written up in `gate-1.md`, not here.
+
+## The sheet was showing one ground
+
+Found during the marks walk, and fixed in `b099d3d` before the walk could be
+completed. `form-sharimiki-ink.svg` and `form-sharimiki-paper.svg` both rendered
+dark, and were byte-identical - as were twelve of the other thirteen pairs.
+
+Every theme is a **pair**. `paletteStyles` puts the light palette in the base
+`svg{}` rule and the dark one inside `@media(prefers-color-scheme:dark)`, so which
+one a reader sees is chosen by their operating system, not by the `theme=` they
+asked for. An `<img>` resolves that query against the OS too. On a machine set to
+dark mode, every image on all four sheets came out dark - **including the sheet
+whose only purpose is to ask whether the deadwood vein survives a pale ground.**
+The document could not answer the question it was asking. This is trap #1 wearing
+a different hat, and it is now trap #8.
+
+Second, narrower, and not a bug: `ink` and `paper` share both palettes and differ
+only in `night`, so for the twelve cases with no fireflies the two files really
+are the same tree. `bunjin` has 40 000 stars and is the one pair that legitimately
+differed. The sheet note says so now instead of implying a second theme.
+
+`gate-4.ts` now pins each sheet to the scheme it claims - the query is stripped for
+the light sheet and hoisted over the base rule for the dark one - and throws rather
+than guess if `paletteStyles` changes shape. **The shipped SVG is untouched.**
 
 ## Verdict
 
-**Pass on the drawing, 2026-07-27, partial.** Both shape sheets and the gallery
-sheet are approved. Recorded in the owner's own terms: the six gallery fixtures
-"actually look great", and on a second look at the fourteen, "they are growing on
-me, I think they are fine as they are right now".
+**Pass, 2026-07-27, complete.** All four sheets approved. The marks were walked
+last, on a re-rendered sheet, and carried in the owner's words: "I checked all...
+all OKAY! approved."
+
+### The partial verdict this replaces, kept as written
+
+Sheets 1, 2 and 4 were approved earlier the same day, in the owner's own terms:
+the six gallery fixtures "actually look great", and on a second look at the
+fourteen, "they are growing on me, I think they are fine as they are right now".
 
 The interesting part of this gate is that the second look reversed the first. The
 initial report was that the fourteen "look weird at times", and measurement then
@@ -164,18 +222,31 @@ sheet the reaction went away on its own. Nothing was changed to earn this pass,
 which is why the acceptance is written down explicitly above rather than left as
 an unticked box next to a measurement.
 
+### Decided, not fixed
+
+**The moss ball stays clipped.** `kokedama` puts the ball at cy 407 with r 32.4, so
+it reaches y 439 against a card that ends at 420 - about 19px is cut off by the
+bottom edge, visible in the `ghost` and `newcomer` images. Owner, 2026-07-27:
+**"for the moss ball, lets keep it clipped for now."**
+
+"For now" is recorded as written. This is an accepted overflow and not an open
+bug, and it joins the two walked decisions from the partial verdict - the short
+multi-trunk crowns and the wide `bunjin`. **Un-clipping it later re-opens a walked
+decision and needs a new verdict, not a fix.** What would argue for re-opening is
+new information, not a fresh opinion: the pot overflows downward too (a stone pot
+reaches 442), so the question was only ever whether a sliced sphere reads worse
+than a flat base, and the answer on the sheet was that it does not.
+
 ### Still open
 
-This verdict covers the pictures on sheets 1, 2 and 4. It does not cover:
+Nothing in this gate. Two things sit outside it:
 
-- **Sheet 3**, the four marks at compact scale. Not reported on.
-- **The moss ball is clipped by the card.** `kokedama` puts the ball at cy 407 with
-  r 32.4, so it reaches y 439 against a card that ends at 420 - about 19px is cut
-  off by the bottom edge. Visible in the `ghost` and `newcomer` images. The pot
-  legitimately overflows downward (a stone pot reaches 442) so this may be the same
-  accepted overflow, but the pot is a flat base and a sphere reads differently when
-  its bottom is sliced. Needs a decision, not an assumption.
-- **No fixture renders `moyogi`.** A coverage question, not a drawing one.
-- **Gates #1 and #2 themselves.** 48 assertions, 24 images each, across every theme
-  and season. What has been walked is six fixtures at ink and summer. Re-pointing
-  the pinned artifacts on that basis would be forging the rest of the approval.
+- **Fireflies gained a `<g class="kd-firefly">` wrapper.** Pre-existing drift,
+  unrelated to form, still unrecorded anywhere.
+- **The light half of gates #1 and #2 has never been walked.** Those gates pin
+  `ink` and `dusk`, which have different *dark* palettes but the *same* light one -
+  so in dark mode their 24 images are two themes, and in light mode they collapse
+  to one. The 2026-07-27 re-point was walked in one scheme. This is the same
+  pair-of-palettes fact that broke this sheet, applied to a gate that was never
+  asked about it. Not a re-gate request - nobody has claimed those images are
+  wrong - but the coverage is thinner than "48 assertions" makes it sound.
