@@ -211,6 +211,7 @@ walked it.
 
 **Result: PASS** - "I checked gates 1 and 2 now. They look beautiful."
 
-The `<desc>` regression recorded at the end of `gate-1.md` applies to these 24
-artifacts as well, and is not covered by this verdict for the same reason: a
-description cannot be judged by looking at a picture.
+The `<desc>` change recorded at the end of `gate-1.md` applies to these 24
+artifacts as well. It was first written up there as an accessibility regression and
+is not one: the removed clauses named plaques and weather, neither of which is
+drawn. The correction is at the end of that file.

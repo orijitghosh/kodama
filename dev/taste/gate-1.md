@@ -142,11 +142,21 @@ Re-rendering also absorbed the `<desc>` drift found before C.4 started, and a
 - `Weather: calm.`
 - `Plaques on the pot rim: commits1k, commits10k, prs100, decade.`
 
-The second is the one that matters. The plaques are *drawn* - a sighted reader sees
-four of them on the pot rim of a whale - and the description no longer says they are
-there. That is an accessibility regression, it predates form, and **it is not
-covered by this verdict**, because nobody could have seen it in a picture. It is
-now baked into the approved artifacts and needs its own fix and its own re-render.
+**This was a fix, not a regression** - recorded here because it was first written up
+in this file as the opposite, and the mistake is the instructive part.
+
+Neither plaques nor weather are drawn. They are computed in `facts.ts` and rendered
+nowhere: there is no `kd-plaque` in any artifact and nothing in the draw path reads
+`facts.weather`. The old description told a screen-reader user about four plaques on
+a pot rim that has no plaques on it - it handed them a *different tree* than a
+sighted reader gets, which is a worse failure than saying less. `biographyFor`'s
+docblock states the rule it now follows: the biography may only name what the biome
+actually draws, and those clauses come back with the elements (M7), not before them.
+
+The error was reading a removal from alt text as an accessibility loss without
+checking whether the thing removed was on the tree. Direction matters: describing an
+element that is not drawn is a bug in the same family as drawing an element that
+cannot say where it came from.
 
 The firefly grouping (`<g class="kd-firefly">`) rode in too and is harmless: a
 wrapper element, no visual or described change.
