@@ -15,6 +15,7 @@
  * rather than trusting it.
  */
 
+import { FORM_MIN_ACTIVE_WEEKS } from "./form.js";
 import { fruitNoun, labelsFor } from "./locale.js";
 import { DEFAULT_SPECIES, isClassic, speciesByName } from "./species.js";
 import type { Species } from "./species.js";
@@ -187,14 +188,74 @@ export function receiptsFor(
 
   // --- the ground and the season ----------------------------------------
 
-  add(
-    "kd-substrate",
-    "pot",
-    `${facts.potTier} pot`,
-    `${POT_REASON[facts.potTier]} - ${String(Math.floor(facts.accountYears))} whole ${
-      Math.floor(facts.accountYears) === 1 ? "year" : "years"
-    } as of ${facts.date}.`,
-  );
+  // One form draws a moss ball where the pot goes (C.4), and the class is the
+  // same because the receipts contract is the class. So the ground gets one
+  // receipt either way, and it describes what is actually on the canvas.
+  if (facts.form === "kokedama") {
+    add(
+      "kd-substrate",
+      "moss ball",
+      "a bound moss ball",
+      `${plural(facts.signals.activeWeeks, "week", "weeks")} with any activity in them, under ` +
+        `the ${String(FORM_MIN_ACTIVE_WEEKS)} a style claim needs - a moss ball is what a tree ` +
+        `gets before its history can say anything about it. The pot tier is unaffected: this ` +
+        `account is ${String(Math.floor(facts.accountYears))} whole ${
+          Math.floor(facts.accountYears) === 1 ? "year" : "years"
+        } old as of ${facts.date}.`,
+    );
+  } else {
+    add(
+      "kd-substrate",
+      "pot",
+      `${facts.potTier} pot`,
+      `${POT_REASON[facts.potTier]} - ${String(Math.floor(facts.accountYears))} whole ${
+        Math.floor(facts.accountYears) === 1 ? "year" : "years"
+      } as of ${facts.date}.`,
+    );
+  }
+
+  // --- what the form itself drew ----------------------------------------
+
+  // The three additive form marks. Each one exists exactly when its element is
+  // drawn, which is what `receipts.test.ts` asserts in both directions - the
+  // conditions here are the same conditions `form-marks.ts` draws on, and the
+  // stone's anchor check is the reason the drawing side has one too.
+  if (facts.form === "sekijoju" && facts.repoMix.anchor !== null) {
+    const { nameWithOwner, years, share } = facts.repoMix.anchor;
+    add(
+      "kd-stone",
+      "stone",
+      nameWithOwner,
+      `${nameWithOwner} is ${plural(years, "year", "years")} old and carries ` +
+        `${String(Math.round(share * 100))}% of this account's qualifying commits. Root over rock ` +
+        `is the style for one long-lived project, and the stone is that repository.`,
+    );
+  }
+
+  if (facts.form === "neagari") {
+    add(
+      "kd-roots",
+      "exposed roots",
+      "roots lifted clear of the soil",
+      `${String(Math.floor(facts.accountYears))} years of history against a recent 26-week rate ` +
+        `${String(Math.round(facts.signals.declineRatio * 100))}% of this account's best year - a ` +
+        `long history that has gone quiet. The lift grows with maturity, not with the decline.`,
+    );
+  }
+
+  if (facts.form === "sharimiki") {
+    const spell = facts.signals.dormancyHistory[facts.signals.dormancyHistory.length - 1];
+    add(
+      "kd-deadwood",
+      "deadwood",
+      "a bleached vein up the trunk",
+      spell === undefined
+        ? "a closed dormancy of at least a year, returned from at least a year ago."
+        : `${plural(spell.days, "day", "days")} with no activity, from ${spell.startedAt} to ` +
+          `${spell.endedAt}, and active ever since. Deadwood is the mark for surviving ` +
+          `something; the vein runs up the live trunk, which is the point of it.`,
+    );
+  }
 
   if (facts.events.length > 0) {
     add(

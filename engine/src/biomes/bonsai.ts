@@ -9,6 +9,7 @@
 
 import { BASE_X, BASE_Y, buildSkeleton } from "../skeleton.js";
 import { geometryFor } from "../form-geometry.js";
+import { drawGroundMarks, drawMossBall, drawTrunkMarks, replacesPot } from "./form-marks.js";
 import type { Pad, Skeleton, SkeletonNode } from "../skeleton.js";
 import { seedFromLogin, streamsFor } from "../rng.js";
 import type { Rng } from "../rng.js";
@@ -43,10 +44,18 @@ const POTS = {
 // Substrate: pot and soil
 // ---------------------------------------------------------------------------
 
-export function drawSubstrate(facts: TreeFacts): string {
+export function drawSubstrate(facts: TreeFacts, seed: number): string {
   const pot = POTS[facts.potTier];
   const left = BASE_X - pot.width / 2;
   const top = BASE_Y;
+
+  // One form has no pot at all (C.4). It keeps the `kd-substrate` class because
+  // the class is the receipts contract, not a description of the shape: the
+  // ground still has to be the thing the ground receipt points at, whether it is
+  // a glazed dish or a ball of moss.
+  if (replacesPot(facts.form)) {
+    return group({ class: "kd-substrate" }, drawMossBall(facts, pot, seed));
+  }
 
   // A trapezoid rather than a rectangle: bonsai pots taper, and the taper is
   // most of what separates "pot" from "box" at this size.
@@ -1314,8 +1323,19 @@ export function drawBonsai(
     // where the tufts are actually drawn: an unreferenced symbol is dead bytes,
     // and `classic` never references one at all.
     detail === "full" && species.leaf !== null ? el("defs", {}, leafSymbol(species)) : "",
-    drawSubstrate(facts),
+    drawSubstrate(facts, seed),
+    // The four draw-layer forms (C.4). Split either side of the branch strokes
+    // because that is where they belong in depth: a tree stands in front of its
+    // own roots and its rock, and a bleached vein is on the trunk, not behind
+    // it. Both return "" for the ten forms that draw neither, and the filter
+    // below drops the empty layer - a form pays no bytes for a mark it has not
+    // got. Skipped below `reduced`: at strip and button size these are marks a
+    // few pixels across, and TASTE §4 asks those scales for a silhouette.
+    detail === "full" || detail === "reduced"
+      ? drawGroundMarks(facts, POTS[facts.potTier], seed)
+      : "",
     drawBranches(skeleton, facts, detail),
+    detail === "full" || detail === "reduced" ? drawTrunkMarks(skeleton, facts) : "",
     drawFoliage(clusters, species, detail),
     drawOrnaments(skeleton, facts, theme, species, seed, detail),
     drawInhabitants(skeleton, facts, theme, species, seed, detail),

@@ -38,6 +38,13 @@ const ACCOUNTABLE = [
   "kd-chime",
   "kd-substrate",
   "kd-seasonal",
+  // The form marks (C.4). A style is the loudest claim the picture makes about a
+  // person, so the three additive marks are accountable in both directions like
+  // everything else. `kd-substrate` covers the fourth: kokedama replaces the pot
+  // rather than adding to it, so it reuses the ground's receipt target.
+  "kd-stone",
+  "kd-roots",
+  "kd-deadwood",
 ] as const;
 
 /** `class="kd-fruits"` and `class="kd-bird kd-bird-perched"` both count. */
