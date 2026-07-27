@@ -118,3 +118,35 @@ pass"), not per-image marks - recorded verbatim rather than back-filling the
 grid. N1 (winter hanami on long-streak trees) accepted as-is: blossoms track
 the streak, not the calendar, and stay. N2 (the empty account still grows a
 tree) accepted. No re-gate needed. M3 unlocked.
+
+---
+
+## Re-walk 2026-07-27 - form (engine v3)
+
+C.4 changed the silhouette, so all 24 pinned images moved and the suite went red -
+a re-gate request, not a repoint. The owner re-rendered the set himself
+(`pnpm --filter @kodama/engine gate`) and walked it.
+
+**Result: PASS**, given as a blanket verdict on the drawing: "I checked gates 1 and
+2 now. They look beautiful."
+
+All six fixtures now select a form - three moss balls, three metronomes, three
+stones and one slant across the ten - so not one of these images is the informal
+upright that gate #1 originally approved. The pinned artifacts are the v3 renders.
+
+### One thing rode in that the walk could not have covered
+
+Re-rendering also absorbed the `<desc>` drift found before C.4 started, and a
+`<desc>` is invisible at 1x. Two facts left the alt text:
+
+- `Weather: calm.`
+- `Plaques on the pot rim: commits1k, commits10k, prs100, decade.`
+
+The second is the one that matters. The plaques are *drawn* - a sighted reader sees
+four of them on the pot rim of a whale - and the description no longer says they are
+there. That is an accessibility regression, it predates form, and **it is not
+covered by this verdict**, because nobody could have seen it in a picture. It is
+now baked into the approved artifacts and needs its own fix and its own re-render.
+
+The firefly grouping (`<g class="kd-firefly">`) rode in too and is harmless: a
+wrapper element, no visual or described change.

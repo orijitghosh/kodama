@@ -200,3 +200,17 @@ are the larger version.
 not a sheet judged at 1×, and this project's output is read at 1× inside a README.
 Any future gate on a small mark - the spirit, a visitor, a plaque - should be walked
 at actual size before it is walked zoomed in.
+
+---
+
+## Re-walk 2026-07-27 - form (engine v3)
+
+Same cause as gate #1's re-walk: C.4 changed the silhouette, all 24 images moved,
+the owner re-rendered the set himself (`pnpm --filter @kodama/engine gate:2`) and
+walked it.
+
+**Result: PASS** - "I checked gates 1 and 2 now. They look beautiful."
+
+The `<desc>` regression recorded at the end of `gate-1.md` applies to these 24
+artifacts as well, and is not covered by this verdict for the same reason: a
+description cannot be judged by looking at a picture.
