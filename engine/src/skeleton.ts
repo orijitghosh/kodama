@@ -20,6 +20,7 @@
 
 import { streamsFor } from "./rng.js";
 import type { Rng } from "./rng.js";
+import type { FormName } from "./form.js";
 
 // ---------------------------------------------------------------------------
 // Composition constants (TASTE §4: tree region x in [24, 470], pot base y=396,
@@ -135,6 +136,69 @@ function isUntransformed(trunk: TrunkPlan): boolean {
   return trunk.dx === 0 && trunk.reach === 1;
 }
 
+/** The four styles whose geometry *is* a trunk plan (PROPOSAL-VARIETALS §3). */
+export type MultiTrunkForm = Extract<
+  FormName,
+  "sokan" | "kabudachi" | "yoseUe" | "ikadabuki"
+>;
+
+/**
+ * The plans the four multi-trunk styles ship with.
+ *
+ * These were derived and frame-tested as part of C.3, before anything drew from
+ * them, so `engine/test/trunks.test.ts` asserts its properties against the
+ * geometry that actually ships rather than against arbitrary numbers. Two of the
+ * original offsets are deliberately tighter than the proposal's - the comments
+ * below say which and why, and the composition tests are what caught them.
+ *
+ * Every `reach` here is C.3's value times 0.82, and that factor is a byte budget
+ * rather than a taste judgement. C.4 rendered these for the first time and
+ * measured them: at full reach a whale drew 185-251 skeleton nodes against a
+ * single trunk's 139, and four of the four plans crossed the 60 KB full-scale cap
+ * on the heaviest combination (animated, sakura) - sokan worst at 108%. Splitting
+ * a crown genuinely costs more nodes than one trunk spends on it, because each
+ * stem grows its own approach to its own share. 0.82 lands all four at 88-90% of
+ * cap, under the 94.9% a single-trunk whale already cost. Shortening the stems
+ * rather than truncating growth at the node ceiling was the choice made, because
+ * a form whose silhouette depends on where an arbitrary cap stopped it is a form
+ * nobody can reason about.
+ */
+export const TRUNK_PLANS: Record<MultiTrunkForm, readonly TrunkPlan[]> = {
+  // Twin trunk: a second stem from the base at about 60% of the main height.
+  sokan: [
+    { dx: 0, reach: 0.82 },
+    { dx: 46, reach: 0.51 },
+  ],
+  // Clump: three to five stems off one root mass, tallest first.
+  kabudachi: [
+    { dx: -34, reach: 0.61 },
+    { dx: 0, reach: 0.82 },
+    { dx: 30, reach: 0.68 },
+    { dx: 62, reach: 0.48 },
+  ],
+  // Forest: five graded trees in one tray. The outer offsets are ±72 and not
+  // ±96 because the wider spread put the leftmost tree's crown at x = 21.5,
+  // outside the tree region TASTE §4 allows - the composition test caught it,
+  // which is the entire reason these plans are asserted against the frame
+  // rather than eyeballed.
+  yoseUe: [
+    { dx: -72, reach: 0.45 },
+    { dx: -38, reach: 0.64 },
+    { dx: 0, reach: 0.82 },
+    { dx: 38, reach: 0.71 },
+    { dx: 72, reach: 0.49 },
+  ],
+  // Raft: several trunks off a fallen stem, none of them dominant. Outer stems
+  // at ±64 for the same reason the forest's are at ±72 - at ±78 the left crown
+  // reached x = 23.4 and left the frame.
+  ikadabuki: [
+    { dx: -64, reach: 0.54 },
+    { dx: -22, reach: 0.67 },
+    { dx: 22, reach: 0.65 },
+    { dx: 64, reach: 0.52 },
+  ],
+};
+
 interface Vec {
   x: number;
   y: number;
@@ -162,11 +226,65 @@ function crownScaleFor(maturity: number): number {
 }
 
 /**
+ * How a form reshapes the crown (D-042, PROPOSAL-VARIETALS §3).
+ *
+ * Nine of the twelve styles are not new geometry at all: they are the existing
+ * cloud with the per-seed character overridden. `attractorCloud` already draws a
+ * lean, a tilt and a heavy side per seed, and form's job is to make some of those
+ * a function of the account's facts rather than of the seed alone.
+ *
+ * Every field is an override, not a delta, so a style states the crown it wants
+ * instead of nudging whatever the seed happened to produce - a windswept tree has
+ * to be windswept for every login, not merely more windswept than its seed was.
+ * An omitted field keeps the seeded value, and the empty shape is the tree as it
+ * has always been drawn.
+ */
+export interface CloudShape {
+  /** Crown centre offset from `CROWN.cx`, in px. Seeded range is ±30. */
+  leanX?: number;
+  /** Crown centre offset from `CROWN.cy`, in px. Negative lifts the crown. */
+  leanY?: number;
+  /** Absolute crown tilt in radians. 0 is axis-symmetric (chokkan). */
+  tilt?: number;
+  /** Direction the foliage masses toward, in radians. 0 is +x. */
+  heavySide?: number;
+  /** How hard it masses that way, 0..1. Seeded range is 0.3..0.55. */
+  heaviness?: number;
+  /** Multiplier on the crown's horizontal extent. */
+  rxScale?: number;
+  /** Multiplier on the crown's vertical extent. */
+  ryScale?: number;
+  /**
+   * Flattens the underside of the crown toward a dome, 0..1 (hokidachi). A
+   * broom's foliage is a hemisphere sitting on the split, so the lower half of
+   * the ellipse is pulled up rather than the whole thing being squashed - which
+   * would shrink the crown instead of changing its shape.
+   */
+  domed?: number;
+  /**
+   * Rotates the whole cloud about the trunk base, in radians (shakan). About the
+   * base and not the crown centre because a slant is a tree leaning out of its
+   * pot, not a crown sitting askew on an upright trunk.
+   */
+  rotate?: number;
+}
+
+const NO_SHAPE: CloudShape = {};
+
+/**
  * The full attractor sequence for a seed, in unit crown space. Generated once
  * and sliced by level, so growing a level extends the cloud rather than
  * resampling it.
+ *
+ * With no shape this is byte-identical to the cloud that has always been drawn,
+ * which is what keeps every existing README unchanged (D-042). Two things make
+ * that true and both matter: the five per-seed values are drawn unconditionally
+ * and in the same order whatever the shape, so form never reshuffles a seed's
+ * stream; and the transforms a shape enables are each skipped entirely when
+ * unset rather than applied as an identity, because `BASE_X + (x - BASE_X)` is
+ * not always bit-identical to `x`.
  */
-export function attractorCloud(seed: number): Vec[] {
+export function attractorCloud(seed: number, shape: CloudShape = NO_SHAPE): Vec[] {
   const rng = streamsFor(seed).for("attractors");
   const points: Vec[] = [];
 
@@ -175,11 +293,24 @@ export function attractorCloud(seed: number): Vec[] {
   // it reads as clip art rather than as a tree someone kept. Each seed gets its
   // own lean, tilt and a preferred direction the foliage masses toward, so the
   // silhouette is asymmetric the way real bonsai are.
-  const leanX = rng.range(-30, 30);
-  const leanY = rng.range(-14, 10);
-  const tilt = CROWN.tilt + rng.range(-0.16, 0.16);
-  const heavySide = rng.next() * Math.PI * 2;
-  const heaviness = rng.range(0.3, 0.55);
+  const seededLeanX = rng.range(-30, 30);
+  const seededLeanY = rng.range(-14, 10);
+  const seededTilt = CROWN.tilt + rng.range(-0.16, 0.16);
+  const seededHeavySide = rng.next() * Math.PI * 2;
+  const seededHeaviness = rng.range(0.3, 0.55);
+
+  const leanX = shape.leanX ?? seededLeanX;
+  const leanY = shape.leanY ?? seededLeanY;
+  const tilt = shape.tilt ?? seededTilt;
+  const heavySide = shape.heavySide ?? seededHeavySide;
+  const heaviness = shape.heaviness ?? seededHeaviness;
+
+  const rx = CROWN.rx * (shape.rxScale ?? 1);
+  const ry = CROWN.ry * (shape.ryScale ?? 1);
+  const domed = shape.domed;
+  const rotate = shape.rotate;
+  const rotateCos = rotate === undefined ? 1 : Math.cos(rotate);
+  const rotateSin = rotate === undefined ? 0 : Math.sin(rotate);
 
   const cos = Math.cos(tilt);
   const sin = Math.sin(tilt);
@@ -197,12 +328,23 @@ export function attractorCloud(seed: number): Vec[] {
     const bias = 1 - heaviness + heaviness * ((1 + Math.cos(angle - heavySide)) / 2) * 2;
     radius *= bias;
 
-    const ex = CROWN.rx * radius * Math.cos(angle);
-    const ey = CROWN.ry * radius * Math.sin(angle);
-    points.push({
-      x: cx + ex * cos - ey * sin,
-      y: cy + ex * sin + ey * cos,
-    });
+    const ex = rx * radius * Math.cos(angle);
+    let ey = ry * radius * Math.sin(angle);
+
+    // y grows downward, so the underside of the crown is ey > 0.
+    if (domed !== undefined && ey > 0) ey *= 1 - domed;
+
+    let x = cx + ex * cos - ey * sin;
+    let y = cy + ex * sin + ey * cos;
+
+    if (rotate !== undefined) {
+      const dx = x - BASE_X;
+      const dy = y - BASE_Y;
+      x = BASE_X + dx * rotateCos - dy * rotateSin;
+      y = BASE_Y + dx * rotateSin + dy * rotateCos;
+    }
+
+    points.push({ x, y });
   }
   return points;
 }
@@ -501,8 +643,9 @@ export function buildSkeleton(
   seed: number,
   maturity: number,
   trunks: readonly TrunkPlan[] = SINGLE_TRUNK,
+  shape: CloudShape = NO_SHAPE,
 ): Skeleton {
-  const cloud = attractorCloud(seed);
+  const cloud = attractorCloud(seed, shape);
   const prefix = cloud.slice(0, Math.max(1, ATTRACTORS_PER_LEVEL * maturity));
 
   // Shrink the crown toward the trunk for younger trees, keeping the base of

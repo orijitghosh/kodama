@@ -27,7 +27,7 @@
  */
 
 import { daysBetween } from "./date.js";
-import { MAX_MATURITY } from "./facts.js";
+import { MAX_MATURITY } from "./limits.js";
 import type { RepoMix, TreeFacts } from "./types.js";
 
 /**
@@ -178,9 +178,20 @@ export const FORM_THRESHOLDS = {
   slantHhi: 0.18,
 } as const;
 
+/**
+ * The facts a rung may read: everything except the form itself.
+ *
+ * Spelled as an omission because `treeFacts` calls `selectForm` while it is still
+ * assembling the facts - the form is the last field filled in, so it cannot be a
+ * required input to choosing it. A complete `TreeFacts` is still accepted
+ * wherever this is, which is what keeps the calibration harness and the tests
+ * calling `selectForm` exactly as they did.
+ */
+export type FormFacts = Omit<TreeFacts, "form">;
+
 /** What a rung gets to look at. Everything here is already derived. */
 export interface FormInput {
-  facts: TreeFacts;
+  facts: FormFacts;
   repoMix: RepoMix;
 }
 
@@ -193,18 +204,18 @@ export interface FormRung {
 }
 
 /** Language shares, descending, without assuming the payload arrived sorted. */
-function langShares(facts: TreeFacts): number[] {
+function langShares(facts: FormFacts): number[] {
   return facts.languages.map((lang) => lang.share).sort((a, b) => b - a);
 }
 
 /** Stars received per commit - reach measured against output. */
-function starsPerCommit(facts: TreeFacts): number {
+function starsPerCommit(facts: FormFacts): number {
   if (facts.totals.commits <= 0) return 0;
   return facts.totals.starsReceived / facts.totals.commits;
 }
 
 /** Days since the most recent dormancy closed, or null if none ever has. */
-function healedFor(facts: TreeFacts): number | null {
+function healedFor(facts: FormFacts): number | null {
   const spells = facts.signals.dormancyHistory;
   const last = spells[spells.length - 1];
   if (last === undefined) return null;

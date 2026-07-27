@@ -8,6 +8,12 @@ import type { SpeciesName } from "./species.js";
  * substrate / masses / ornaments / inhabitants - onto their own imagery.
  */
 
+// A type-only import, and circular on purpose: `form.ts` needs `TreeFacts` and
+// `RepoMix` from here, and `TreeFacts` now carries a form. Types are erased, so
+// there is no runtime edge - unlike `MAX_MATURITY`, which had to move out to
+// `limits.ts` for exactly this reason.
+import type { FormName } from "./form.js";
+
 // ---------------------------------------------------------------------------
 // NormalizedHistory v2
 //
@@ -338,4 +344,17 @@ export interface TreeFacts {
   streak: HistoryStreak;
   languages: LangShare[];
   signals: DerivedSignals;
+
+  /**
+   * Which silhouette this account gets (D-042). Derived and default-on, which is
+   * why the engine announces v3.
+   */
+  form: FormName;
+  /**
+   * Carried so the receipts layer can cite what the form was chosen from. Form
+   * selection takes the mix as a separate argument, and until C.4 nothing
+   * downstream of `treeFacts` could see it - a receipt that cannot name its
+   * evidence is not a receipt.
+   */
+  repoMix: RepoMix;
 }

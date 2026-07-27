@@ -25,6 +25,9 @@ import {
   wholeYearsBetween,
   yearsBetween,
 } from "./date.js";
+import { MAX_MATURITY } from "./limits.js";
+import { selectForm } from "./form.js";
+import type { FormFacts } from "./form.js";
 import type {
   DerivedSignals,
   DormancySpell,
@@ -59,7 +62,8 @@ import type {
 export const GU_PER_LEVEL = 400;
 
 export const MIN_MATURITY = 3;
-export const MAX_MATURITY = 13;
+/** Owned by `limits.ts` so form selection can read it without a cycle. */
+export { MAX_MATURITY };
 
 /** Leaf clusters per pad, from the within-level growth residual. */
 export const MIN_PAD_DENSITY = 4;
@@ -629,7 +633,11 @@ export function treeFacts(history: NormalizedHistory, date: string): TreeFacts {
   const dormant = isDormant(history, date);
   const events = seasonalEventsFor(date);
 
-  return {
+  // Assembled without the form, then asked which form it is. The ladder reads
+  // derived signals and the repo mix, so everything it needs is already here by
+  // this point - and doing it in one pass keeps `treeFacts` the single place a
+  // fact is computed, which is the promise the whole file rests on.
+  const base: FormFacts = {
     login: history.login,
     date,
 
@@ -660,5 +668,8 @@ export function treeFacts(history: NormalizedHistory, date: string): TreeFacts {
     streak: history.streak,
     languages: history.languages,
     signals: derivedSignalsFor(history, date),
+    repoMix: history.repoMix,
   };
+
+  return { ...base, form: selectForm({ facts: base, repoMix: history.repoMix }) };
 }

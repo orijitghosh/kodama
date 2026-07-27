@@ -81,7 +81,10 @@ export {
   mayRestyle,
   selectForm,
 } from "./form.js";
-export type { FormInput, FormName, FormRung } from "./form.js";
+export type { FormFacts, FormInput, FormName, FormRung } from "./form.js";
+/** The geometry each form draws with (C.4). */
+export { FORM_GEOMETRY, geometryFor } from "./form-geometry.js";
+export type { FormGeometry } from "./form-geometry.js";
 
 export { receiptsFor } from "./receipts.js";
 export type { Receipt } from "./receipts.js";

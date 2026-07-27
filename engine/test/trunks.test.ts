@@ -26,6 +26,7 @@ import {
   buildSkeleton,
   padCountFor,
   SINGLE_TRUNK,
+  TRUNK_PLANS,
 } from "../src/skeleton.js";
 import type { TrunkPlan } from "../src/skeleton.js";
 import { seedFromLogin } from "../src/rng.js";
@@ -35,45 +36,15 @@ const SEEDS = FIXTURE_NAMES.map(seedFromLogin);
 const LEVELS = [3, 5, 8, 11, 13];
 
 /**
- * The plans the four multi-trunk styles will use, named here so the properties
- * are asserted against the geometry that will actually ship rather than against
- * arbitrary numbers (PROPOSAL-VARIETALS §3).
+ * Every plan the engine ships, single trunk included, so the properties below
+ * cover the default and the four styles in one pass. The multi-trunk geometry
+ * itself lives in `src/skeleton.ts` (`TRUNK_PLANS`) because C.4 draws from it -
+ * a plan asserted here but declared in the test file would be a plan the engine
+ * could not use.
  */
 const PLANS: Record<string, readonly TrunkPlan[]> = {
   single: SINGLE_TRUNK,
-  // Twin trunk: a second stem from the base at about 60% of the main height.
-  sokan: [
-    { dx: 0, reach: 1 },
-    { dx: 46, reach: 0.62 },
-  ],
-  // Clump: three to five stems off one root mass, tallest first.
-  kabudachi: [
-    { dx: -34, reach: 0.74 },
-    { dx: 0, reach: 1 },
-    { dx: 30, reach: 0.83 },
-    { dx: 62, reach: 0.58 },
-  ],
-  // Forest: five graded trees in one tray. The outer offsets are ±72 and not
-  // ±96 because the wider spread put the leftmost tree's crown at x = 21.5,
-  // outside the tree region TASTE §4 allows - the composition test below caught
-  // it, which is the entire reason these plans are asserted against the frame
-  // rather than eyeballed.
-  yoseUe: [
-    { dx: -72, reach: 0.55 },
-    { dx: -38, reach: 0.78 },
-    { dx: 0, reach: 1 },
-    { dx: 38, reach: 0.86 },
-    { dx: 72, reach: 0.6 },
-  ],
-  // Raft: several trunks off a fallen stem, none of them dominant. Outer stems
-  // at ±64 for the same reason the forest's are at ±72 - at ±78 the left crown
-  // reached x = 23.4 and left the frame.
-  ikadabuki: [
-    { dx: -64, reach: 0.66 },
-    { dx: -22, reach: 0.82 },
-    { dx: 22, reach: 0.79 },
-    { dx: 64, reach: 0.63 },
-  ],
+  ...TRUNK_PLANS,
 };
 
 const MULTI = Object.entries(PLANS).filter(([name]) => name !== "single");

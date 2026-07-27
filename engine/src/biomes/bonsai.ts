@@ -8,6 +8,7 @@
  */
 
 import { BASE_X, BASE_Y, buildSkeleton } from "../skeleton.js";
+import { geometryFor } from "../form-geometry.js";
 import type { Pad, Skeleton, SkeletonNode } from "../skeleton.js";
 import { seedFromLogin, streamsFor } from "../rng.js";
 import type { Rng } from "../rng.js";
@@ -1292,7 +1293,13 @@ export function drawBonsai(
   detail: Detail = "full",
 ): BonsaiTree {
   const seed = seedFromLogin(facts.login);
-  const skeleton = buildSkeleton(seed, facts.maturity);
+
+  // Where form stops being invisible (C.4, D-042). Everything before this commit
+  // derived a style and drew the same tree anyway; from here the silhouette is a
+  // function of the account's history. `moyogi` and the four draw-layer styles
+  // resolve to the default plan and an empty shape, so most trees are unmoved.
+  const { trunks, cloud } = geometryFor(facts.form);
+  const skeleton = buildSkeleton(seed, facts.maturity, trunks, cloud);
 
   if (detail === "glyph") {
     return { svg: drawGlyph(facts), skeleton };
