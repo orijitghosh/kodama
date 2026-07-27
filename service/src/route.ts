@@ -25,13 +25,18 @@ import { isValidLogin, loginFromPath, parseOptions, restorePath } from "./params
 /**
  * The grammar version, announced rather than silent (PRD §Engine versioning).
  *
- * v2 is species: the leaf mass, the autumn colour, the flower and the fruit now
- * follow the top language, and stars are drawn on every theme instead of only the
- * night ones. Every existing tree changes, which is exactly the case this header
- * and the changelog were put here for - and it is why rollback is a pin on this
- * value (OPS §6.4) rather than a revert of the drawing.
+ * v3 is form: the silhouette itself now encodes how someone works. Where v2
+ * changed what the tree was made of, v3 changes its shape - the trunk plan, the
+ * crown, and for four of the styles a mark on the ground or the wood. Every
+ * existing tree changes again, and more visibly than in v2, which is exactly the
+ * case this header was put here for. Rollback stays a pin on this value
+ * (OPS §6.4) rather than a revert of the drawing.
+ *
+ * Note this is not `NormalizedHistory`'s version, which is also at v2 and moves
+ * on its own schedule: that one is a cache-shape number the fetcher purges
+ * against, this one is a public statement that the picture changed.
  */
-export const ENGINE_VERSION = "v2";
+export const ENGINE_VERSION = "v3";
 
 /** Content type, byte-for-byte what camo proxied intact (SPIKE-CAMO). */
 const SVG_TYPE = "image/svg+xml; charset=utf-8";
