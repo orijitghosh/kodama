@@ -32,6 +32,7 @@ import { historyWith, weeksEndingAt } from "./helpers/history.js";
 import {
   burstyWeeks,
   FORM_CASES,
+  FORM_CASE_DATE,
   formCasesCoverEveryForm,
   LAST_COMPLETE_WEEK,
   PLAIN,
@@ -247,5 +248,62 @@ describe("the thresholds", () => {
     // Why neagari sits above fukinagashi. If this inequality ever flips, the
     // ordering argument in D-043 stops holding and one of them goes dark.
     expect(FORM_THRESHOLDS.exposedRootDecline).toBeLessThan(FORM_THRESHOLDS.windsweptDecline);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Stability under drift
+// ---------------------------------------------------------------------------
+
+describe("a style does not flip on an ordinary day", () => {
+  /** Scale every continuous input by (1 + e); counts stay whole. */
+  function nudge(history: NormalizedHistory, e: number): NormalizedHistory {
+    const m = history.repoMix;
+    const clamp = (x: number): number => Math.min(1, Math.max(0, x));
+    return {
+      ...history,
+      totals: {
+        ...history.totals,
+        commits: Math.max(0, Math.round(history.totals.commits * (1 + e))),
+        starsReceived: Math.max(0, Math.round(history.totals.starsReceived * (1 + e))),
+      },
+      repoMix: {
+        ...m,
+        hhi: clamp(m.hhi * (1 + e)),
+        ownShare: clamp(m.ownShare * (1 + e)),
+        breadth: Math.max(0, Math.round(m.breadth * (1 + e))),
+        orgs: Math.max(0, Math.round(m.orgs * (1 + e))),
+        anchor: m.anchor === null ? null : { ...m.anchor, share: clamp(m.anchor.share * (1 + e)) },
+      },
+    };
+  }
+
+  const styleOf = (h: NormalizedHistory): FormName =>
+    selectForm({ facts: treeFacts(h, FORM_CASE_DATE), repoMix: h.repoMix });
+
+  it("survives a 2% wobble in every input, for every crafted account", () => {
+    // The service refreshes a history once a UTC day, so `selectForm` sees new
+    // numbers daily and an account sitting on a threshold could be drawn as one
+    // style today and another tomorrow. D-042's restyle beats were meant to stop
+    // that and cannot be implemented statelessly (see D-045).
+    //
+    // Measured instead: over the 159-account calibration corpus, *no* account
+    // changes style under +/-2%, and a day of commits moves these ratios by far
+    // less. This is that measurement as a committed test - the corpus is the
+    // owner's and stays out of the repo, so the crafted accounts stand in for it.
+    // `engine/scripts/form-stability.ts` re-runs the real thing.
+    for (const one of FORM_CASES) {
+      for (const e of [0.02, -0.02]) {
+        expect(styleOf(nudge(one.history, e)), `${one.form} at ${String(e)}`).toBe(one.form);
+      }
+    }
+  });
+
+  it("is deterministic for a fixed history and date", () => {
+    // The other half of why daily churn is bounded: nothing about selection
+    // varies per request, so two page loads on one day cannot disagree.
+    for (const one of FORM_CASES) {
+      expect(styleOf(one.history)).toBe(styleOf(one.history));
+    }
   });
 });

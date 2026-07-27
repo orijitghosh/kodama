@@ -31,6 +31,7 @@
     "gate:2": "tsx scripts/gate-2.ts",
     "gate:3": "tsx scripts/gate-3.ts",
     "gate:4": "tsx scripts/gate-4.ts",
+    "form:stability": "tsx scripts/form-stability.ts",
     "gallery": "tsx scripts/dump-gallery.ts",
     "zoom": "tsx scripts/dump-zoom.ts",
     "fixtures:gen": "tsx scripts/generate-fixtures.ts"
