@@ -51,7 +51,21 @@ export function healthBody(c: Container, engineVersion: string, nowMs: number): 
   const alerts: string[] = [];
 
   for (const slot of pool) {
-    if (slot.benched) alerts.push(`token ${String(slot.index)} benched until ${slot.resetAt ?? "?"}`);
+    // A benched token is two different incidents wearing one face, and the
+    // runbook splits on exactly this (OPS §6.1 vs §6.5). Quota benches itself
+    // until a moment GitHub named and then comes back on its own; a credential
+    // GitHub refused benches, lifts, is refused again, and repeats until a human
+    // rotates it. Naming that here is the difference between an operator
+    // reaching for a cache lever that cannot help and reaching for the one that
+    // can, so the two never share a line.
+    if (slot.benched && slot.lastFailure === "auth") {
+      alerts.push(
+        `token ${String(slot.index)} refused by GitHub, not rate-limited - ` +
+          `rotate the credential (OPS §6.5)`,
+      );
+    } else if (slot.benched) {
+      alerts.push(`token ${String(slot.index)} benched until ${slot.resetAt ?? "?"}`);
+    }
     if (slot.remaining !== null && slot.limit !== null && slot.limit > 0) {
       const consumed = 1 - slot.remaining / slot.limit;
       if (consumed >= ALERT_AT_CONSUMED) {

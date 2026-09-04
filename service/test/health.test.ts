@@ -65,8 +65,43 @@ describe("alerts", () => {
     const c = buildContainer(ENV);
     c.pool.penalize(TOKEN_A, "auth");
     const body = healthBody(c, "v1", Date.now());
-    expect(body.alerts.join(" ")).toContain("token 0 benched");
+    expect(body.alerts.join(" ")).toContain("token 0");
     expect(body.ok).toBe(true);
+  });
+
+  it("calls a refused credential what it is, not a rate limit (OPS §6.5)", () => {
+    const c = buildContainer(ENV);
+    c.pool.penalize(TOKEN_A, "auth");
+
+    const alerts = healthBody(c, "v1", Date.now()).alerts;
+    // The operator's next move is in the text: rotate, do not reach for a cache
+    // lever. An expired PAT never comes back on its own, so "benched until ..."
+    // would send them to the wrong runbook entry.
+    expect(alerts.join(" ")).toContain("refused by GitHub");
+    expect(alerts.join(" ")).toContain("OPS §6.5");
+    expect(alerts.join(" ")).not.toContain("benched until");
+  });
+
+  it("still reads as a rate limit when the bench came from quota", () => {
+    const c = buildContainer(ENV);
+    // The reset has to be genuinely ahead of the wall clock: the pool reads
+    // `Date.now()`, and a bench whose reset has already passed is not a bench.
+    const resetAt = new Date(Date.now() + 3_600_000).toISOString();
+    c.pool.report(TOKEN_A, { cost: 1, limit: 5000, remaining: 100, resetAt });
+    // Benching on the floor happens inside `acquire`, where the pool decides a
+    // token is too thin to hand out.
+    c.pool.acquire();
+
+    const alerts = healthBody(c, "v1", Date.now()).alerts;
+    expect(alerts.join(" ")).toContain(`benched until ${resetAt}`);
+    expect(alerts.join(" ")).not.toContain("refused by GitHub");
+  });
+
+  it("emits one line per benched token, never both readings", () => {
+    const c = buildContainer(ENV);
+    c.pool.penalize(TOKEN_A, "auth");
+    const benchLines = healthBody(c, "v1", Date.now()).alerts.filter((a) => a.startsWith("token 0"));
+    expect(benchLines).toHaveLength(1);
   });
 
   it("goes not-ok only when every token is benched", () => {

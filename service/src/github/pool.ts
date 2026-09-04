@@ -26,6 +26,9 @@ export interface RateLimitReading {
   resetAt: string;
 }
 
+/** How a token was refused. A 401 is `"auth"`; a dead socket is `"transport"`. */
+export type FailureKind = "auth" | "transport";
+
 export class PoolExhaustedError extends Error {
   override readonly name = "PoolExhaustedError";
   /** Epoch ms at which the earliest-resetting token returns. */
@@ -45,6 +48,17 @@ interface Slot {
   resetAtMs: number | null;
   /** Consecutive transport/auth failures; three strikes benches for an hour. */
   failures: number;
+  /**
+   * What refused this token last, cleared only by a successful `report`.
+   *
+   * Deliberately *not* cleared when a bench lifts. A lifted bench clears the
+   * quota reading, because the window really did reset - but it does not clear
+   * the diagnosis, because nothing about the token changed. An expired PAT is
+   * benched, lifted, refused, benched again on the hour forever, and without a
+   * sticky mark `/healthz` would show it healthy in the gap between the lift and
+   * the next request, which is most of the hour.
+   */
+  lastFailure: FailureKind | null;
   benchedUntilMs: number | null;
 }
 
@@ -56,6 +70,12 @@ export interface PoolStats {
   benched: boolean;
   resetAt: string | null;
   failures: number;
+  /**
+   * Why the token was last refused, or null if it has never been refused since
+   * it last answered. `"auth"` is the one an operator has to act on: it does not
+   * clear on its own (OPS §6.5).
+   */
+  lastFailure: FailureKind | null;
 }
 
 export interface PatPoolOptions {
@@ -82,6 +102,7 @@ export class PatPool {
       limit: null,
       resetAtMs: null,
       failures: 0,
+      lastFailure: null,
       benchedUntilMs: null,
     }));
     this.#now = options.now ?? (() => Date.now());
@@ -96,6 +117,7 @@ export class PatPool {
     if (slot.benchedUntilMs !== null && slot.benchedUntilMs > now) return false;
     // A bench that has expired is lifted, and the stale quota reading with it:
     // the window reset, so the token is whole again until proven otherwise.
+    // `lastFailure` survives on purpose - see the field's note.
     if (slot.benchedUntilMs !== null && slot.benchedUntilMs <= now) {
       slot.benchedUntilMs = null;
       slot.remaining = null;
@@ -135,6 +157,8 @@ export class PatPool {
     const resetAtMs = Date.parse(reading.resetAt);
     slot.resetAtMs = Number.isNaN(resetAtMs) ? null : resetAtMs;
     slot.failures = 0;
+    // The only thing that clears a diagnosis is the token working again.
+    slot.lastFailure = null;
   }
 
   /**
@@ -158,10 +182,11 @@ export class PatPool {
   }
 
   /** Bench a token immediately - GitHub said 401, or the transport died. */
-  penalize(token: string, kind: "auth" | "transport"): void {
+  penalize(token: string, kind: FailureKind): void {
     const slot = this.#slots.find((s) => s.token === token);
     if (slot === undefined) return;
     slot.failures += 1;
+    slot.lastFailure = kind;
     // A rejected token is not coming back this hour; a flaky connection might.
     if (kind === "auth") slot.benchedUntilMs = this.#now() + 3_600_000;
     else if (slot.failures >= 3) slot.benchedUntilMs = this.#now() + 60_000;
@@ -183,6 +208,7 @@ export class PatPool {
       benched: slot.benchedUntilMs !== null && slot.benchedUntilMs > now,
       resetAt: slot.resetAtMs === null ? null : new Date(slot.resetAtMs).toISOString(),
       failures: slot.failures,
+      lastFailure: slot.lastFailure,
     }));
   }
 }

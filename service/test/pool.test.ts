@@ -129,6 +129,35 @@ describe("PatPool", () => {
     expect(pool.stats()[0]!.failures).toBe(0);
   });
 
+  it("records what refused a token, so /healthz can tell the two apart", () => {
+    const pool = new PatPool(["a", "b"], { now: () => 1_000_000 });
+    pool.penalize("a", "auth");
+    pool.penalize("b", "transport");
+    expect(pool.stats().map((s) => s.lastFailure)).toEqual(["auth", "transport"]);
+  });
+
+  it("starts with no diagnosis, and only a working token clears one", () => {
+    const pool = new PatPool(["a"], { now: () => 1_000_000 });
+    expect(pool.stats()[0]!.lastFailure).toBeNull();
+    pool.penalize("a", "auth");
+    pool.report("a", reading(4999, RESET));
+    expect(pool.stats()[0]!.lastFailure).toBeNull();
+  });
+
+  it("keeps the diagnosis when the bench lifts, because nothing was fixed", () => {
+    let now = 1_000_000;
+    const pool = new PatPool(["a"], { now: () => now });
+    pool.penalize("a", "auth");
+
+    now += 3_600_001;
+    expect(pool.acquire()).toBe("a");
+    // The hour lifting is not the credential working. An expired PAT is refused
+    // again on the next request and benched again, and /healthz must not read
+    // healthy in the gap - that gap is most of every hour (OPS §6.5).
+    expect(pool.stats()[0]!.lastFailure).toBe("auth");
+    expect(pool.stats()[0]!.failures).toBe(0);
+  });
+
   it("reports per-token quota and never a sum (D-029)", () => {
     const pool = new PatPool(["a", "b"], { now: () => RESET_MS - 60_000 });
     pool.report("a", reading(4000, RESET));
