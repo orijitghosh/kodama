@@ -22,7 +22,7 @@ describe("handleUserRedirect", () => {
   });
 
   it("404s anything that is not a login", () => {
-    for (const path of ["/-nope", "/has%20space", "/a/b", "/"]) {
+    for (const path of ["/-nope", "/has%20space", "/a/b", "/", "/%E0%A4%A"]) {
       expect(get(path).status, path).toBe(404);
     }
   });

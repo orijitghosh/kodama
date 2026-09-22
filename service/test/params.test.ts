@@ -1,6 +1,26 @@
 import { describe, expect, it } from "vitest";
 
-import { isValidLogin, LOGIN_PATTERN, OPTION_DEFAULTS, parseOptions } from "../src/params.js";
+import {
+  isValidLogin,
+  LOGIN_PATTERN,
+  loginFromPath,
+  OPTION_DEFAULTS,
+  parseOptions,
+} from "../src/params.js";
+
+describe("loginFromPath", () => {
+  it("reads a login out of each route shape", () => {
+    expect(loginFromPath("/hana.svg")).toBe("hana");
+    expect(loginFromPath("/api/hana.json", "json")).toBe("hana");
+    expect(loginFromPath("/hana", "bare")).toBe("hana");
+  });
+
+  it("returns null for a malformed escape rather than throwing", () => {
+    expect(loginFromPath("/%E0%A4%A.svg")).toBeNull();
+    expect(loginFromPath("/api/%ZZ.json", "json")).toBeNull();
+    expect(loginFromPath("/%", "bare")).toBeNull();
+  });
+});
 
 describe("LOGIN_PATTERN", () => {
   it("accepts the logins GitHub accepts", () => {

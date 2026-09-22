@@ -122,6 +122,14 @@ describe("handleFacts", () => {
     expect(github.calls.length).toBe(0);
   });
 
+  it("400s a malformed escape in the path instead of throwing", async () => {
+    const { github, deps } = build();
+    const response = await get("/api/%E0%A4%A.json", deps);
+
+    expect(response.status).toBe(400);
+    expect(github.calls.length).toBe(0);
+  });
+
   it("503s when GitHub is down and nothing is cached", async () => {
     const { deps } = build({ failWith: { Identity: 500 } });
     const response = await get("/api/hana.json", deps);

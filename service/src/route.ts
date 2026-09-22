@@ -215,8 +215,36 @@ function svgResponse(svg: string, options: ResponseOptions): Response {
   }
   // Debuggability without breakage: the image is correct, the header explains
   // why it is not the one that was asked for.
-  if (options.warnings.length > 0) headers.set("x-kodama-warn", options.warnings.join("; "));
+  if (options.warnings.length > 0) {
+    headers.set("x-kodama-warn", headerSafe(options.warnings.join("; ")));
+  }
   return new Response(svg, { status: 200, headers });
+}
+
+/** Past this, a warning is truncated: a query string is not a size anyone agreed to echo. */
+const WARN_MAX_CHARS = 512;
+
+const utf8 = new TextEncoder();
+
+/**
+ * A warning echoes what the caller sent, and a header value is not a string.
+ *
+ * `Headers.set` throws on a newline and on anything past U+00FF, so an echoed
+ * `?theme=日本` or `?theme=a%0Ab` became an unhandled throw and a 500 - the one
+ * status this route promises never to return. Everything outside printable
+ * ASCII is percent-encoded as UTF-8 instead, so the header still says what
+ * arrived and can no longer refuse to be set.
+ */
+export function headerSafe(value: string): string {
+  let out = "";
+  for (const char of value) {
+    const code = char.codePointAt(0) ?? 0;
+    out +=
+      code >= 0x20 && code <= 0x7e
+        ? char
+        : Array.from(utf8.encode(char), (b) => `%${b.toString(16).toUpperCase().padStart(2, "0")}`).join("");
+  }
+  return out.length > WARN_MAX_CHARS ? `${out.slice(0, WARN_MAX_CHARS - 3)}...` : out;
 }
 
 /** Size ceilings from SPEC-ENGINE §1, re-asserted on what actually ships. */

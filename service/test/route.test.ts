@@ -317,6 +317,37 @@ describe("option validation (SPEC-SERVICE §1)", () => {
     expect(body).not.toContain("<script>");
   });
 
+  it("still returns a picture when the echoed value cannot be a header", async () => {
+    // `Headers.set` throws on a newline and on anything past U+00FF, and the
+    // warning echoes the value - so each of these was a 500 in production.
+    const { deps } = build();
+    for (const query of ["theme=%E6%97%A5", "theme=a%0Ab", "lang=%E6%97%A5", "theme=%00"]) {
+      const response = await get(`/hana.svg?${query}`, deps);
+      await expectValidSvg(response);
+      expect(response.headers.get("x-kodama-warn"), query).toMatch(/^[\x20-\x7e]+$/);
+    }
+  });
+
+  it("says what arrived, percent-encoded, rather than dropping it", async () => {
+    const { deps } = build();
+    const response = await get("/hana.svg?theme=%E6%97%A5", deps);
+    expect(response.headers.get("x-kodama-warn")).toContain("theme=%E6%97%A5 is not a known value");
+  });
+
+  it("caps an echoed warning, however long the query", async () => {
+    const { deps } = build();
+    const response = await get(`/hana.svg?theme=${"x".repeat(10_000)}`, deps);
+    await expectValidSvg(response);
+    expect((response.headers.get("x-kodama-warn") ?? "").length).toBeLessThanOrEqual(512);
+  });
+
+  it("draws the empty pot for a malformed escape in the path, not a 500", async () => {
+    const { deps, github } = build();
+    const body = await expectValidSvg(await get("/%E0%A4%A.svg", deps));
+    expect(body).toContain("no seed here");
+    expect(github.calls).toHaveLength(0);
+  });
+
   it("rejects a path that is not a tree request", async () => {
     const { deps } = build();
     await expectValidSvg(await get("/hana.png", deps));

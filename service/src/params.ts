@@ -43,7 +43,15 @@ const SHAPES: Record<RouteShape, { pattern: RegExp; path: (login: string) => str
 
 /** `/<user>.svg` → `user`. Returns null when the path is not a tree request. */
 export function loginFromPath(pathname: string, shape: RouteShape = "svg"): string | null {
-  const match = SHAPES[shape].pattern.exec(decodeURIComponent(pathname));
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(pathname);
+  } catch {
+    // A malformed escape (`/%E0%A4%A.svg`) names nobody. `decodeURIComponent`
+    // throws on it, and a throw here is a 500 from a route that promises a picture.
+    return null;
+  }
+  const match = SHAPES[shape].pattern.exec(decoded);
   return match?.[1] ?? null;
 }
 
