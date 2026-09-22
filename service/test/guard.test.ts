@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { clientOf, ColdBudgetError, KvColdGuard } from "../src/guard.js";
+import { clientOf, ColdBudgetError, KvColdGuard, networkOf } from "../src/guard.js";
 import { coldKey, guarded, MemoryKV, newHealth } from "../src/kv/index.js";
 import type { KV } from "../src/kv/index.js";
 
@@ -110,5 +110,52 @@ describe("clientOf", () => {
   it("returns null with no header, and with an empty one", () => {
     expect(clientOf(withHeader(null))).toBeNull();
     expect(clientOf(withHeader("   "))).toBeNull();
+  });
+
+  it("charges an IPv6 /64 as one client, however many addresses it steps through", () => {
+    const first = clientOf(withHeader("2001:db8:85a3:1::1"));
+    expect(clientOf(withHeader("2001:db8:85a3:1:ffff:ffff:ffff:fffe"))).toBe(first);
+    expect(clientOf(withHeader("2001:0DB8:85A3:0001:dead:beef:0:1"))).toBe(first);
+    expect(clientOf(withHeader("2001:db8:85a3:2::1"))).not.toBe(first);
+  });
+
+  it("still tells two IPv4 addresses apart", () => {
+    expect(clientOf(withHeader("203.0.113.7"))).not.toBe(clientOf(withHeader("203.0.113.8")));
+  });
+});
+
+describe("networkOf", () => {
+  it("leaves an IPv4 address as it is", () => {
+    expect(networkOf("203.0.113.7")).toBe("203.0.113.7");
+  });
+
+  it("reduces an IPv6 address to its /64, in one canonical spelling", () => {
+    expect(networkOf("2001:db8:85a3:1:2:3:4:5")).toBe("2001:db8:85a3:1::/64");
+    expect(networkOf("2001:0db8:85a3:0001::5")).toBe("2001:db8:85a3:1::/64");
+    expect(networkOf("2001:DB8:85A3:1::")).toBe("2001:db8:85a3:1::/64");
+  });
+
+  it("expands a compressed run that falls inside the prefix", () => {
+    expect(networkOf("2001:db8::1")).toBe("2001:db8:0:0::/64");
+    expect(networkOf("2001:db8::1:2:3:4")).toBe("2001:db8:0:0::/64");
+    expect(networkOf("::1")).toBe("0:0:0:0::/64");
+  });
+
+  it("drops a zone index", () => {
+    expect(networkOf("fe80::1%eth0")).toBe("fe80:0:0:0::/64");
+  });
+
+  it("counts an IPv4-mapped address as the IPv4 address it is", () => {
+    expect(networkOf("::ffff:203.0.113.7")).toBe("203.0.113.7");
+  });
+
+  it("gives a dotted tail the two groups it occupies", () => {
+    expect(networkOf("64:ff9b::192.0.2.1")).toBe("64:ff9b:0:0::/64");
+  });
+
+  it("returns anything unparseable as given, so it is still counted", () => {
+    for (const junk of ["1:2:3", "1::2::3", "1:2:3:4:5:6:7:8:9", "zz::1", "1:2:3:4:5:6:7::8"]) {
+      expect(networkOf(junk), junk).toBe(junk);
+    }
   });
 });

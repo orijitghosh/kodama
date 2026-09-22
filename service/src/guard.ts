@@ -31,7 +31,13 @@ import type { KV } from "./kv/index.js";
  * Sized against the honest heavy user rather than the median: browsing the
  * gallery, pasting a few logins into the landing page and reloading a receipts
  * page costs single digits. Forty leaves room for a shared NAT or an office
- * behind one address, and caps a single source at under 1% of the hourly budget.
+ * behind one address.
+ *
+ * It is not a small slice of the budget. A cold fetch is 15-23 points (OPS §3),
+ * so forty of them is 600-920 points - about 16% of one account's 5 000-point
+ * hour - and roughly six capped sources empty an account. What the cap bounds
+ * is the drain *per network*, which is why the unit counted is the network and
+ * not the address (`networkOf`).
  */
 export const COLD_FETCHES_PER_HOUR = 40;
 
@@ -104,5 +110,45 @@ export function clientOf(request: Request): string | null {
   const forwarded = request.headers.get("x-forwarded-for");
   const first = forwarded?.split(",")[0]?.trim();
   if (first === undefined || first.length === 0) return null;
-  return fnv1a32(first).toString(16);
+  return fnv1a32(networkOf(first)).toString(16);
+}
+
+/**
+ * The unit a client is counted by: an IPv4 address, or an IPv6 /64.
+ *
+ * An IPv6 subscriber is routinely handed a whole /64 - 2^64 addresses - and can
+ * step to a fresh one on every request, so counting per address gave one machine
+ * an unlimited number of forty-fetch allowances. The /64 is the smallest block
+ * an ISP assigns to one customer, which makes it the IPv6 counterpart of "one
+ * address". An IPv4-mapped address (`::ffff:203.0.113.7`) is IPv4 and is counted
+ * as that address.
+ *
+ * Anything that does not parse is returned as given: it is still hashed and
+ * still counted, just on its own.
+ */
+export function networkOf(address: string): string {
+  const bare = address.split("%")[0]!.toLowerCase();
+  if (!bare.includes(":")) return bare;
+
+  const mapped = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/.exec(bare);
+  if (mapped !== null) return mapped[1]!;
+
+  const halves = bare.split("::");
+  if (halves.length > 2) return bare;
+  const groupsOf = (half: string | undefined): string[] =>
+    half === undefined || half === "" ? [] : half.split(":");
+  const head = groupsOf(halves[0]);
+  const tail = groupsOf(halves[1]);
+  // A dotted tail (`64:ff9b::192.0.2.1`) fills two groups. Only the first four
+  // are kept, so its value never matters - only the space it takes.
+  const width = (groups: string[]): number =>
+    groups.reduce((n, g) => n + (g.includes(".") ? 2 : 1), 0);
+  const missing = 8 - width(head) - width(tail);
+  const compressed = halves.length === 2;
+  if (compressed ? missing < 1 : missing !== 0) return bare;
+
+  const groups = [...head, ...Array<string>(compressed ? missing : 0).fill("0"), ...tail];
+  const prefix = groups.slice(0, 4);
+  if (!prefix.every((g) => /^[0-9a-f]{1,4}$/.test(g))) return bare;
+  return `${prefix.map((g) => parseInt(g, 16).toString(16)).join(":")}::/64`;
 }
